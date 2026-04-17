@@ -148,7 +148,7 @@ function renderChart(market, klines) {
     }
 
     var chart = LightweightCharts.createChart(container, {
-        width: container.clientWidth, height: 280,
+        width: container.clientWidth, height: container.clientHeight || 480,
         layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
         grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
         rightPriceScale: { borderColor: '#30363D' },
@@ -165,22 +165,34 @@ function renderChart(market, klines) {
     var volChart = null, volSeries = null;
     if (volContainer) {
         volChart = LightweightCharts.createChart(volContainer, {
-            width: volContainer.clientWidth, height: volContainer.clientHeight || 100,
+            width: volContainer.clientWidth, height: volContainer.clientHeight || 150,
             layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
             grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
             rightPriceScale: { borderColor: '#30363D' },
             timeScale: { borderColor: '#30363D', timeVisible: true },
-            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
         });
         volSeries = volChart.addHistogramSeries({ color: '#58A6FF', priceFormat: { type: 'volume' }, priceScaleId: '' });
         volSeries.setData(vdata);
         volChart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
+        // Sync time scale when main chart time scale changes
         chart.timeScale().subscribeVisibleTimeRangeChange(function(range) {
-            if (volChart && range && range.left != null) volChart.timeScale().setVisibleLogicalRange(range);
+            if (volChart && range && range.left != null) {
+                volChart.timeScale().setVisibleLogicalRange(range);
+            }
         });
+
+        // Also sync when vol chart time scale changes (drag on vol chart)
         volChart.timeScale().subscribeVisibleTimeRangeChange(function(range) {
-            if (chart && range && range.left != null) chart.timeScale().setVisibleLogicalRange(range);
+            if (chart && range && range.left != null) {
+                chart.timeScale().setVisibleLogicalRange(range);
+            }
+        });
+
+        // Sync crosshair: when crosshair moves on main chart, move vol chart crosshair
+        chart.subscribeCrosshairMove(function(param) {
+            if (!param || !param.time || !volChart) return;
+            volChart.setCrosshairPosition(param.seriesData.size ? param.seriesData.size : param.logical, param.time, volSeries);
         });
 
         var key = 'resize_' + market;

@@ -165,7 +165,7 @@ function renderChart(market, klines) {
     var volChart = null, volSeries = null;
     if (volContainer) {
         volChart = LightweightCharts.createChart(volContainer, {
-            width: volContainer.clientWidth, height: 80,
+            width: volContainer.clientWidth, height: volContainer.clientHeight || 100,
             layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
             grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
             rightPriceScale: { borderColor: '#30363D' },

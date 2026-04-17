@@ -268,11 +268,14 @@
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         .chart-header {
             display: flex; align-items: center; justify-content: space-between;
             padding: var(--space-md);
             border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
         }
         .chart-sym { font-size: 16px; font-weight: 700; }
         .chart-price { font-size: 20px; font-weight: 700; margin-top: 2px; }
@@ -293,8 +296,10 @@
             transition: all 0.2s;
         }
         .tf-btn.active, .tf-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--accent-blue); }
-        #chart-container, .chart-main { height: 380px; }
-        #chart-container-vol, .chart-vol { height: 80px; border-top: 1px solid var(--border-color); }
+        #chart-crypto, .chart-main,
+        #chart-twse, #chart-us { height: 380px; flex-shrink: 0; }
+        #chart-crypto-vol, .chart-vol,
+        #chart-twse-vol, #chart-us-vol { height: 100px; flex-shrink: 0; border-top: 1px solid var(--border-color); }
 
         /* ── Unified sym-bar ── */
         .sym-bar { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }

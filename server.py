@@ -1,11 +1,38 @@
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.staticfiles import StaticFiles
 import httpx
 import os
+from datetime import datetime, timedelta
+import json
 
 app = FastAPI()
 
-# Dashboard HTML 路徑
+# Serve static files (CSS, JS)
+BASE = os.path.dirname(__file__)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
+
+# Top 20 cryptos
+TOP20_CRYPTO = ["BTC","ETH","BNB","XRP","SOL","DOGE","ADA","AVAX","DOT","SHIB","LINK","MATIC","LTC","UNI","ATOM","XLM","ETC","XMR","ALGO","FIL"]
+
+# Top 50 TWSE stocks
+TOP50_TWSE = ["2330","2317","2454","2303","2382","2376","2458","2308","2388","2884","2883","2882","2891","2892","2881","5871","5880","6415","2337","2451","2478","3034","2353","2354","2377","2379","2383","2408","2412","2449","2455","2456","2468","2492","3037","3044","3229","3231","3293","3454","3532","3557","3576","3583","3587","3661","3673","3682","3693","3711","4104","4141","4142","4952","4960","4966","4977","4989","5007","5054","5264","5276","5388","5434","5478","5483","5522","5530","5538"]
+
+DATA_DIR = "/Users/changrunlin/.openclaw/workspace/crypto-agent-platform/data"
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+TWSE_BASE = "https://openapi.twse.com.tw"
+
 HTML_PATH = os.path.join(os.path.dirname(__file__), "dashboard_v2.html")
 
 @app.get("/")
@@ -17,24 +44,404 @@ async def dashboard():
     with open(HTML_PATH, "r") as f:
         return HTMLResponse(content=f.read())
 
-@app.get("/api/klines")
-async def get_klines(symbol: str, interval: str, limit: int = 300):
-    # Binance klines API
-    url = f"https://api.binance.com/api/v3/klines"
-    params = {"symbol": symbol, "interval": interval, "limit": limit}
-    async with httpx.AsyncClient() as client:
+# ══════════════════════════════════════════════════════════════════════════════
+# Crypto Endpoints
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/crypto/list")
+async def get_crypto_list():
+    """Returns top 20 crypto symbols for the selector"""
+    return [{"symbol": s, "name": s} for s in TOP20_CRYPTO]
+
+@app.get("/api/crypto/klines")
+async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h"), limit: int = 300):
+    """Get klines for a specific crypto - try local cache first, then Binance"""
+    # Try local cache first (from TWSE download)
+    cache_file = os.path.join(DATA_DIR, f"crypto_daily/{symbol.upper()}.json")
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r") as f:
+                data = json.load(f)
+            return data[:limit]
+        except:
+            pass
+    
+    # Fall back to Binance
+    url = "https://api.binance.com/api/v3/klines"
+    binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
+    params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
+    async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url, params=params)
-        return r.json()
+        raw = r.json()
+    
+    # Binance format: [timestamp, open, high, low, close, volume, ...]
+    result = []
+    for d in raw:
+        ts = int(d[0]) // 1000  # ms -> seconds
+        result.append({
+            "time": ts,
+            "open": float(d[1]),
+            "high": float(d[2]),
+            "low": float(d[3]),
+            "close": float(d[4]),
+            "volume": float(d[5]),
+        })
+    return result
+
+@app.get("/api/crypto/quote")
+async def get_crypto_quote(symbol: str = Query("")):
+    """Get current quote for a crypto"""
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
+    params = {"symbol": binance_symbol}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(url, params=params)
+        data = r.json()
+    
+    return {
+        "symbol": symbol.upper(),
+        "price": float(data.get("lastPrice", 0)),
+        "change": float(data.get("priceChange", 0)),
+        "change_pct": float(data.get("priceChangePercent", 0)),
+        "high": float(data.get("highPrice", 0)),
+        "low": float(data.get("lowPrice", 0)),
+        "volume": float(data.get("volume", 0)),
+    }
+
+@app.get("/api/twse/list")
+async def get_twse_list():
+    """Returns top 50 TWSE stocks for the selector"""
+    return [{"code": c, "name": c} for c in TOP50_TWSE]
+
+def _twse_headers():
+    return {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
+
+_TWSE_CLIENT_ARGS = {"timeout": 15.0, "headers": _twse_headers(), "verify": False}
+
+# ── 股票搜尋 ──────────────────────────────────────────────────────────────
+
+@app.get("/api/twse/search")
+async def twse_search(q: str = Query("")):
+    url = f"{TWSE_BASE}/v1/exchangeReport/STOCK_DAY_ALL"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r = await client.get(url)
+        all_stocks = r.json()
+
+    q_lower = q.lower()
+    results = [
+        {"code": s["Code"], "name": s["Name"]}
+        for s in all_stocks
+        if q_lower in s["Code"].lower() or q_lower in s["Name"].lower()
+    ]
+    return results[:20]
+
+# ── 即時行情 ────────────────────────────────────────────────────────────────
+
+@app.get("/api/twse/quote")
+async def twse_quote(stock: str = Query("")):
+    url = f"{TWSE_BASE}/v1/exchangeReport/STOCK_DAY_ALL"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r = await client.get(url)
+        all_stocks = r.json()
+
+    target = None
+    for s in all_stocks:
+        if s["Code"] == stock:
+            target = s
+            break
+
+    if not target:
+        return JSONResponse(content={"error": f"Stock {stock} not found"}, status_code=404)
+
+    # 本益比/殖利率
+    pe_url = f"{TWSE_BASE}/v1/exchangeReport/BWIBBU_ALL"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r2 = await client.get(pe_url)
+        pe_data = r2.json()
+
+    pe_info = {}
+    for p in pe_data:
+        if p["Code"] == stock:
+            pe_info = {"pe": p.get("PEratio", ""), "dy": p.get("DividendYield", ""), "pb": p.get("PBratio", "")}
+            break
+
+    close = float(target["ClosingPrice"]) if target["ClosingPrice"] else 0
+    open_p = float(target["OpeningPrice"]) if target["OpeningPrice"] else close
+    change = float(target["Change"]) if target["Change"] else 0
+    pct = (change / open_p * 100) if open_p else 0
+
+    return {
+        "code": target["Code"],
+        "name": target["Name"],
+        "price": close,
+        "change": change,
+        "change_pct": round(pct, 2),
+        "open": float(target["OpeningPrice"]) if target["OpeningPrice"] else None,
+        "high": float(target["HighestPrice"]) if target["HighestPrice"] else None,
+        "low": float(target["LowestPrice"]) if target["LowestPrice"] else None,
+        "volume": int(target["TradeVolume"]) if target["TradeVolume"] else 0,
+        "trade_value": int(target["TradeValue"]) if target["TradeValue"] else 0,
+        "transaction": int(target["Transaction"]) if target["Transaction"] else 0,
+        **pe_info,
+    }
+
+# ── 日K線 ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/twse/daily")
+async def twse_daily(stock: str = Query(""), months: int = 6):
+    url = f"{TWSE_BASE}/v1/exchangeReport/STOCK_DAY_ALL"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r = await client.get(url)
+        all_data = r.json()
+
+    target = None
+    for s in all_data:
+        if s["Code"] == stock:
+            target = s
+            break
+
+    if not target:
+        return JSONResponse(content={"error": f"Stock {stock} not found"}, status_code=404)
+
+    close = float(target["ClosingPrice"]) if target["ClosingPrice"] else 0
+    open_p = float(target["OpeningPrice"]) if target["OpeningPrice"] else close
+    high = float(target["HighestPrice"]) if target["HighestPrice"] else close
+    low = float(target["LowestPrice"]) if target["LowestPrice"] else close
+    volume = int(target["TradeVolume"]) if target["TradeVolume"] else 0
+    date_str = str(target["Date"])  # e.g. "1150416"
+
+    # Taiwan ROC calendar: year = first 3 digits + 1911 = Gregorian year
+    greg_year = int(date_str[:3]) + 1911
+    greg_month = int(date_str[3:5])
+    greg_day = int(date_str[5:7])
+    from datetime import datetime
+    ts = int(datetime(greg_year, greg_month, greg_day).timestamp())
+
+    return [{
+        "time": ts,
+        "open": float(open_p),
+        "high": float(high),
+        "low": float(low),
+        "close": float(close),
+        "volume": int(volume),
+    }]
+
+# ── 分線圖 ────────────────────────────────────────────────────────────────
+
+@app.get("/api/twse/klines")
+async def twse_klines(stock: str = Query(""), interval: str = Query(""), limit: int = 300):
+    """Serve TWSE daily klines from local historical data files"""
+    import os, json
+    data_dir = "/Users/changrunlin/.openclaw/workspace/crypto-agent-platform/data/twse_daily"
+    filepath = os.path.join(data_dir, f"{stock}.json")
+    if not os.path.exists(filepath):
+        return JSONResponse(content={"error": f"No data for {stock}"}, status_code=404)
+    with open(filepath) as f:
+        data = json.load(f)
+    # limit: take most recent N records
+    return data[-limit:]
+
+@app.get("/api/twse/intraday")
+async def twse_intraday(stock: str = Query("")):
+    url = f"{TWSE_BASE}/v1/exchangeReport/MI_5MINS"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r = await client.get(url)
+        data = r.json()
+
+    result = []
+    for item in data:
+        try:
+            t = str(item["Time"])
+            h = int(t[:2])
+            m = int(t[2:4])
+            s = int(t[4:6]) if len(t) >= 6 else 0
+            today = datetime.now().replace(hour=h, minute=m, second=s, microsecond=0)
+            ts = int(today.timestamp())
+
+            close = float(item.get("AccTradePrice", 0) or 0)
+            if close <= 0:
+                continue
+
+            result.append({
+                "time": ts,
+                "open": close,
+                "high": close,
+                "low": close,
+                "close": close,
+                "volume": int(item["AccTradeVolume"]) if item["AccTradeVolume"] else 0,
+            })
+        except:
+            continue
+    return result
+
+# ── 大盤指數 ─────────────────────────────────────────────────────────────
+
+@app.get("/api/twse/index")
+async def twse_index():
+    url = f"{TWSE_BASE}/v1/exchangeReport/MI_INDEX"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r = await client.get(url)
+        data = r.json()
+
+    for item in data:
+        if "發行量加權股價指數" in item.get("指數", ""):
+            return {
+                "name": item["指數"],
+                "close": float(item["收盤指數"].replace(",", "")) if item["收盤指數"] else 0,
+                "change": item.get("漲跌", ""),
+                "change_point": float(item["漲跌點數"].replace(",", "")) if item.get("漲跌點數") else 0,
+                "change_pct": float(item["漲跌百分比"].replace(",", "")) if item.get("漲跌百分比") else 0,
+                "date": item["日期"],
+            }
+    return {}
+
+# ── 個股基本資料 ─────────────────────────────────────────────────────────
+
+@app.get("/api/twse/info")
+async def twse_info(stock: str = Query("")):
+    url = f"{TWSE_BASE}/v1/exchangeReport/BWIBBU_ALL"
+    async with httpx.AsyncClient(**_TWSE_CLIENT_ARGS) as client:
+        r = await client.get(url)
+        all_data = r.json()
+
+    for item in all_data:
+        if item["Code"] == stock:
+            return {
+                "code": item["Code"],
+                "name": item["Name"],
+                "date": item["Date"],
+                "pe": item.get("PEratio", ""),
+                "dividend_yield": item.get("DividendYield", ""),
+                "pb": item.get("PBratio", ""),
+            }
+    return {"code": stock, "name": "", "pe": "", "dividend_yield": "", "pb": ""}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Binance / Crypto Endpoints
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/klines")
+async def get_klines(symbol: str = Query(""), interval: str = Query(""), limit: int = 300):
+    url = f"https://api.binance.com/api/v3/klines"
+    binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
+    params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(url, params=params)
+        raw = r.json()
+    # Transform to standardized format
+    result = []
+    for d in raw:
+        ts = int(d[0]) // 1000  # ms -> seconds
+        result.append({
+            "time": ts,
+            "open": float(d[1]),
+            "high": float(d[2]),
+            "low": float(d[3]),
+            "close": float(d[4]),
+            "volume": float(d[5]),
+        })
+    return result
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Backend proxy routes (proxied to port 5008)
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/strategies/all")
 async def get_strategies_all():
-    # 回傳空陣列或其他默認值
-    return []
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/strategies/all")
+        return r.json()
 
 @app.get("/api/strategies/live")
 async def get_strategies_live():
-    return []
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/strategies/live")
+        return r.json()
 
 @app.get("/api/dashboard/anomalies")
 async def get_anomalies():
-    return []
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/dashboard/anomalies")
+        return r.json()
+
+@app.get("/api/status")
+async def get_status():
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/status")
+        return r.json()
+
+@app.get("/api/signals")
+async def get_signals(symbol: str = None, limit: int = 10):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        params = {"limit": limit}
+        if symbol:
+            params["symbol"] = symbol
+        r = await client.get("http://localhost:5008/api/signals", params=params)
+        return r.json()
+
+@app.get("/api/signals/history")
+async def get_signal_history(symbol: str = None, strategy: str = None, days: int = 7, limit: int = 100):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        params = {"days": days, "limit": limit}
+        if symbol:
+            params["symbol"] = symbol
+        if strategy:
+            params["strategy"] = strategy
+        r = await client.get("http://localhost:5008/api/signals/history", params=params)
+        return r.json()
+
+@app.get("/api/strategies")
+async def get_strategies():
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/strategies")
+        return r.json()
+
+@app.get("/api/rankings")
+async def get_rankings():
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/rankings")
+        return r.json()
+
+# TWSE API routes (proxy to port 5008)
+@app.get("/api/twse/quote/{code}")
+async def twse_quote(code: str):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(f"http://localhost:5008/api/twse/quote/{code}")
+        return r.json()
+
+@app.get("/api/twse/klines/{code}")
+async def twse_klines(code: str, interval: str = "D", limit: int = 300):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(f"http://localhost:5008/api/twse/klines/{code}?interval={interval}&limit={limit}")
+        return r.json()
+
+@app.get("/api/twse/anomalies/realtime")
+async def twse_anomalies():
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/twse/anomalies/realtime")
+        return r.json()
+
+# TWSE API proxy routes (to port 5008)
+@app.get("/api/twse/quote/{code}")
+async def twse_quote(code: str):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(f"http://localhost:5008/api/twse/quote/{code}", params={"interval": "D"})
+        return r.json()
+
+@app.get("/api/twse/klines/{code}")
+async def twse_klines(code: str, interval: str = "D", limit: int = 300):
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(f"http://localhost:5008/api/twse/klines/{code}?interval={interval}&limit={limit}")
+        return r.json()
+
+@app.get("/api/twse/anomalies/realtime")
+async def twse_anomalies_realtime():
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/twse/anomalies/realtime")
+        return r.json()
+
+@app.get("/api/twse/stocks")
+async def twse_stocks():
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get("http://localhost:5008/api/twse/stocks")
+        return r.json()

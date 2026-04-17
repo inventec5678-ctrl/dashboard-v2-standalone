@@ -64,6 +64,39 @@ export function fetchTWSEAnomalies() {
     });
 }
 
+export async function fetchUSKlines(symbol, interval, limit = 300) {
+    // GET /api/us/klines/{symbol}?interval=1d&limit=300
+    const resp = await fetch(`${window.API_BASE}/us/klines/${symbol}?interval=${interval}&limit=${limit}`);
+    return resp.json();
+}
+
+export async function fetchUSQuote(symbol) {
+    // GET /api/us/quote/{symbol}
+    const resp = await fetch(`${window.API_BASE}/us/quote/${symbol}`);
+    return resp.json();
+}
+
+export async function fetchUSSymbols() {
+    // GET /api/symbols/us
+    const resp = await fetch(`${window.API_BASE}/symbols/us`);
+    return resp.json();
+}
+
+export async function loadUSOHLCV(symbol, interval) {
+    const data = await fetchUSKlines(symbol, interval);
+    if (!data || !data.klines) return [];
+    return data.klines.map(function(d) {
+        return {
+            time: d[0],
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+            volume: parseFloat(d[5])
+        };
+    });
+}
+
 export function fetchSymbolsCrypto() {
     // Returns list of available crypto symbols (exposed as named export for completeness)
     return Promise.resolve([]);

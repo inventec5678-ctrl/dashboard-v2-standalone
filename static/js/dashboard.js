@@ -5,7 +5,7 @@ import * as api from './modules/api.js';
 import * as marketSwitch from './modules/market_switch.js';
 import * as chartCrypto from './modules/chart_crypto.js';
 import * as chartTWSE from './modules/chart_twse.js';
-import * as anomalies from './modules/anomalies.js';
+import * as chartUS from './modules/chart_us.js';
 import * as strategies from './modules/strategies.js';
 import * as modal from './modules/modal_strategy.js';
 import * as sentiment from './modules/sentiment.js';
@@ -25,6 +25,8 @@ window.currentTF = '4h';
 window.currentSym = 'BTC';
 window.currentMarket = 'CRYPTO';
 window.currentTWSEStock = '2330';
+window.currentUSStock = 'AAPL';
+window.currentUSTF = 'D';
 window._twseSearchTimer = null;
 window.lastSuccessfulUpdate = null;
 
@@ -44,16 +46,17 @@ window.onTWSESearchKeyup = chartTWSE.onTWSESearchKeyup;
 window.selectTWSEResult = chartTWSE.selectTWSEResult;
 window.onTWSEStockChange = chartTWSE.onTWSEStockChange;
 window.onCryptoSymbolChange = chartTWSE.onCryptoSymbolChange;
+window.loadUSQuote = chartUS.loadUSQuote;
+window.loadUSChart = chartUS.loadUSChart;
+window.onUSStockChange = chartUS.onUSStockChange;
+window.populateUSSymbolSelect = chartUS.populateUSSymbolSelect;
 window.loadStrategies = strategies.loadStrategies;
 window.computeConsensus = strategies.computeConsensus;
 window.renderStrategyOverview = strategies.renderStrategyOverview;
 window.renderRankingTable = strategies.renderRankingTable;
 window.rankSetSort = strategies.rankSetSort;
 window.doRankSort = strategies.doRankSort;
-window.loadAnomalies = anomalies.loadAnomalies;
-window.startTwseAnomTimer = anomalies.startTwseAnomTimer;
-window.renderAnomalyPanels = anomalies.renderAnomalyPanels;
-window.renderTwseAnomalies = anomalies.renderTwseAnomalies;
+
 window.openStrategyModalById = modal.openStrategyModalById;
 window._doRenderModal = modal._doRenderModal;
 window.closeStrategyModal = modal.closeStrategyModal;
@@ -110,10 +113,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // US TF buttons
+    document.querySelectorAll('#us-tf-buttons .tf-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#us-tf-buttons .tf-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var usTf = btn.dataset.tf;
+            window.currentUSTF = usTf;
+            window.loadUSChart(window.currentUSStock, usTf);
+        });
+    });
+
     // Initial load
     window.switchMarket('CRYPTO');
     window.loadStrategies();
-    window.loadAnomalies();
+    window.populateUSSymbolSelect();
 });
 
 // Fallback: run immediately if DOM already loaded
@@ -121,7 +135,6 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     setTimeout(function() {
         window.switchMarket('CRYPTO');
         window.loadStrategies();
-        window.loadAnomalies();
     }, 10);
 }
 
@@ -132,7 +145,6 @@ setInterval(function() {
         if (elapsed > 90) {
             window.updateBadge('stale', '逾期 ' + Math.floor(elapsed/60) + 'm');
             window.loadStrategies();
-            window.loadAnomalies();
         }
     }
 }, 30000);

@@ -22,13 +22,29 @@ export function switchMarket(market) {
         window.twseVolChart = null;
         window.twseVolSeries = null;
     }
+    if (window.usChart) {
+        window.usChart.remove();
+        window.usChart = null;
+        window.usCandleSeries = null;
+    }
+    if (window.usVolChart) {
+        window.usVolChart.remove();
+        window.usVolChart = null;
+        window.usVolSeries = null;
+    }
 
     window.currentMarket = market;
 
     // 更新頁面抬頭標題
     var titleEl = document.getElementById('topbar-title');
     if (titleEl) {
-        titleEl.textContent = market === 'TWSE' ? '📈 台股量化交易平台' : '📈 加密貨幣量化交易平台';
+        if (market === 'TWSE') {
+            titleEl.textContent = '📈 台股量化交易平台';
+        } else if (market === 'US') {
+            titleEl.textContent = '🇺🇸 美股量化交易平台';
+        } else {
+            titleEl.textContent = '📈 加密貨幣量化交易平台';
+        }
     }
     document.getElementById('tab-btn-crypto').style.background = market === 'CRYPTO' ? '#333' : 'transparent';
     document.getElementById('tab-btn-crypto').style.color = market === 'CRYPTO' ? '#fff' : 'var(--text-muted)';
@@ -36,6 +52,8 @@ export function switchMarket(market) {
     document.getElementById('tab-btn-twse').style.color = market === 'TWSE' ? '#fff' : 'var(--text-muted)';
     document.getElementById('tab-btn-strategy').style.background = market === 'STRATEGY' ? '#333' : 'transparent';
     document.getElementById('tab-btn-strategy').style.color = market === 'STRATEGY' ? '#fff' : 'var(--text-muted)';
+    document.getElementById('tab-btn-us').style.background = market === 'US' ? '#333' : 'transparent';
+    document.getElementById('tab-btn-us').style.color = market === 'US' ? '#fff' : 'var(--text-muted)';
 
     if (market === 'TWSE') {
         document.getElementById('tab-twse').style.display = 'block';
@@ -43,7 +61,6 @@ export function switchMarket(market) {
         document.getElementById('tab-strategy').style.display = 'none';
         window.loadTWSEQuote(window.currentTWSEStock);
         window.loadTWSEChart(window.currentTWSEStock, 'D');
-        window.startTwseAnomTimer();
         // Clear ranking table for TWSE mode
         window.renderRankingTable([]);
         var stratConsBody = document.getElementById('strategy-consensus-body');
@@ -81,8 +98,32 @@ export function switchMarket(market) {
         document.getElementById('tab-strategy').style.display = 'block';
         document.getElementById('tab-crypto').style.display = 'none';
         document.getElementById('tab-twse').style.display = 'none';
+        document.getElementById('tab-us').style.display = 'none';
         var titleEl = document.getElementById('topbar-title');
         if (titleEl) titleEl.textContent = '📊 策略中心';
         window.loadStrategies();
+    } else if (market === 'US') {
+        document.getElementById('tab-us').style.display = 'block';
+        document.getElementById('tab-crypto').style.display = 'none';
+        document.getElementById('tab-twse').style.display = 'none';
+        document.getElementById('tab-strategy').style.display = 'none';
+        var titleEl = document.getElementById('topbar-title');
+        if (titleEl) titleEl.textContent = '🇺🇸 美股量化交易平台';
+        // 載入 US 報價與圖表
+        window.loadUSQuote(window.currentUSStock);
+        window.loadUSChart(window.currentUSStock, window.currentUSTF);
+        // Resize chart in case it was initialized in a hidden container
+        setTimeout(function() {
+            if (window.usChart) window.usChart.resize();
+            if (window.usVolChart) window.usVolChart.resize();
+        }, 50);
+        // 清除其他市場的策略顯示
+        window.renderRankingTable([]);
+        var stratConsBody = document.getElementById('strategy-consensus-body');
+        if (stratConsBody) stratConsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">美股模式，暫無策略資料</div>';
+        // 重置情緒晶片
+        document.getElementById('sc-rsi-val').textContent = '—';
+        document.getElementById('sc-regime-val').textContent = '—';
+        document.getElementById('sc-momentum-val').textContent = '—';
     }
 }

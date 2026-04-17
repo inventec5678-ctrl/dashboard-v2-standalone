@@ -31,6 +31,7 @@
         <div style="background:var(--bg-secondary);border-bottom:1px solid var(--border-color);padding:0 24px;display:flex;gap:2px;">
             <button onclick="switchMarket('CRYPTO')" id="tab-btn-crypto" style="background:#333;color:#fff;border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">🪙 Crypto</button>
             <button onclick="switchMarket('TWSE')" id="tab-btn-twse" style="background:transparent;color:var(--text-muted);border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">🏦 台股</button>
+            <button onclick="switchMarket('US')" id="tab-btn-us" style="background:transparent;color:var(--text-muted);border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">🇺🇸 美股</button>
             <button onclick="switchMarket('STRATEGY')" id="tab-btn-strategy" style="background:transparent;color:var(--text-muted);border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">📊 策略</button>
                     </div>
 
@@ -83,44 +84,7 @@
                 </div>
             </div>
 
-            <!-- Anomaly Panels -->
-            <div class="section">
-                <div class="section-title">異常監控</div>
-                <div class="anomaly-panels">
 
-                    <!-- Volume Anomaly Panel -->
-                    <div class="anomaly-panel">
-                        <div class="anomaly-panel-header">
-                            <span class="anomaly-panel-title">📊 成交量異常</span>
-                            <div class="anomaly-status-light normal" id="vol-status-light">
-                                <span class="anomaly-status-dot normal" id="vol-status-dot"></span>
-                                <span id="vol-status-text">正常</span>
-                            </div>
-                            <span class="anomaly-count-badge" id="vol-count-badge">0 異常</span>
-                        </div>
-                        <div class="anomaly-list" id="vol-anomaly-list">
-                            <div class="anomaly-panel-loading">載入中...</div>
-                        </div>
-                    </div>
-
-                    <!-- Order Book Anomaly Panel -->
-                    <div class="anomaly-panel">
-                        <div class="anomaly-panel-header">
-                            <span class="anomaly-panel-title">📋 掛單異常</span>
-                            <div class="anomaly-status-light normal" id="ob-status-light">
-                                <span class="anomaly-status-dot normal" id="ob-status-dot"></span>
-                                <span id="ob-status-text">正常</span>
-                            </div>
-                            <span class="anomaly-count-badge" id="ob-count-badge">0 異常</span>
-                        </div>
-                        <div class="anomaly-list" id="ob-anomaly-list">
-                            <div class="anomaly-panel-loading">載入中...</div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-            </div><!-- /tab-crypto (Market Sentiment + Chart + Anomaly) -->
 
             <!-- TWSE Tab Content -->
             <div id="tab-twse" class="tab-content" style="display:none;">
@@ -196,26 +160,33 @@
                     </div>
                 </div>
 
-                <!-- TWSE Anomaly Panels -->
+
+
+            <!-- US Tab Content -->
+            <div id="tab-us" class="tab-content" style="display:none;">
                 <div class="section">
-                    <div class="section-title">台股異常監控</div>
-                    <div class="anomaly-panels">
-                        <div class="anomaly-panel" style="grid-column:1/-1">
-                            <div class="anomaly-panel-header">
-                                <span class="anomaly-panel-title">🏦 台股異常</span>
-                                <div class="anomaly-status-light normal" id="twse-anom-status-light">
-                                    <span class="anomaly-status-dot normal" id="twse-anom-status-dot"></span>
-                                    <span id="twse-anom-status-text">正常</span>
-                                </div>
-                                <span class="anomaly-count-badge" id="twse-anom-count-badge">0 異常</span>
+                    <div class="section-title">美股 K 線</div>
+                    <div class="chart-wrap">
+                        <div class="chart-header">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                <select id="us-stock-select" onchange="onUSStockChange(this.value)" class="sym-select" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:3px 8px;font-size:11px;font-family:var(--font-mono)">
+                                    <!-- Options 由 JS 動態填入 -->
+                                </select>
+                                <span id="us-price-v2" class="price-display">—</span>
+                                <span id="us-change-v2" class="change-display" style="font-size:11px;margin-left:6px;font-family:var(--font-mono)">—</span>
+                                <span id="us-volume-v2" style="font-size:10px;color:var(--text-muted);margin-left:6px"></span>
                             </div>
-                            <div class="anomaly-list" id="twse-anom-list">
-                                <div class="anomaly-panel-loading">載入中...</div>
+                            <div class="chart-tf" id="us-tf-buttons">
+                                <button class="tf-btn active" data-tf="D" onclick="onUSStockChange(currentUSStock)">日</button>
+                                <button class="tf-btn" data-tf="W" onclick="onUSStockChange(currentUSStock)">週</button>
+                                <button class="tf-btn" data-tf="M" onclick="onUSStockChange(currentUSStock)">月</button>
                             </div>
                         </div>
+                        <div id="chart-container-us" class="chart-main" style="height:280px"></div>
+                        <div id="chart-container-us-vol" class="chart-vol" style="height:80px;border-top:1px solid var(--border-color)"></div>
                     </div>
                 </div>
-            </div>
+
 
             <!-- Strategy Tab Content -->
             <div id="tab-strategy" class="tab-content" style="display:none;">

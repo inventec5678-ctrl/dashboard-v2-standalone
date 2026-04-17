@@ -446,6 +446,59 @@ async def twse_anomalies_realtime():
         r = await client.get("http://localhost:5008/api/twse/anomalies/realtime")
         return r.json()
 
+@app.get("/api/symbols/us")
+async def get_symbols_us():
+    """Returns US stock symbols from meta/symbols_us.json"""
+    import json
+    path = os.path.join(DATA_DIR, "meta", "symbols_us.json")
+    if not os.path.exists(path):
+        return {"symbols": []}
+    with open(path) as f:
+        data = json.load(f)
+    return {"symbols": data.get("symbols", [])}
+
+@app.get("/api/us/quote/{symbol}")
+async def us_quote(symbol: str):
+    """Get current US stock quote via yfinance"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.fast_info
+        price = info.last_price or 0
+        prev_close = info.previous_close or 0
+        change = price - prev_close
+        change_pct = (change / prev_close * 100) if prev_close else 0
+        return {
+            "symbol": symbol.upper(),
+            "price": round(float(price), 2),
+            "change": round(float(change), 2),
+            "change_pct": round(float(change_pct), 2),
+            "volume": info.last_volume or 0
+        }
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.get("/api/us/klines/{symbol}")
+async def us_klines(symbol: str, interval: str = "1d", limit: int = 300):
+    """Serve US stock klines from local parquet files"""
+    import pandas as pd
+    interval_map = {"1d": "1d", "1wk": "1wk", "1mo": "1mo", "D": "1d", "W": "1wk", "M": "1mo"}
+    interval_key = interval_map.get(interval, "1d")
+    path = os.path.join(DATA_DIR, "ohlcvutc", "us", f"{symbol.upper()}_{interval_key}.parquet")
+    if not os.path.exists(path):
+        return JSONResponse(content={"error": f"No data for {symbol} {interval}"}, status_code=404)
+    df = pd.read_parquet(path).tail(limit)
+    klines = []
+    for idx, row in df.iterrows():
+        ts = idx
+        if hasattr(ts, 'timestamp'):
+            ts = int(ts.timestamp())
+        elif isinstance(ts, str):
+            from datetime import datetime
+            ts = int(datetime.parse(ts).timestamp())
+        klines.append([ts, float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"]), float(row["volume"])])
+    return {"symbol": symbol.upper(), "interval": interval_key, "klines": klines}
+
 @app.get("/api/twse/stocks")
 async def twse_stocks():
     async with httpx.AsyncClient(timeout=30.0) as client:

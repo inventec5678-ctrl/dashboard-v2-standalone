@@ -14,11 +14,12 @@ app = FastAPI()
 BASE = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE, "static")), name="static")
 
-# Top 20 cryptos
-TOP20_CRYPTO = ["BTC","ETH","BNB","XRP","SOL","DOGE","ADA","AVAX","DOT","SHIB","LINK","MATIC","LTC","UNI","ATOM","XLM","ETC","XMR","ALGO","FIL"]
+# Import symbol lists
+from data.symbols import TOP20_CRYPTO, TOP50_TWSE
 
-# Top 50 TWSE stocks
-TOP50_TWSE = ["2330","2317","2454","2303","2382","2376","2458","2308","2388","2884","2883","2882","2891","2892","2881","5871","5880","6415","2337","2451","2478","3034","2353","2354","2377","2379","2383","2408","2412","2449","2455","2456","2468","2492","3037","3044","3229","3231","3293","3454","3532","3557","3576","3583","3587","3661","3673","3682","3693","3711","4104","4141","4142","4952","4960","4966","4977","4989","5007","5054","5264","5276","5388","5434","5478","5483","5522","5530","5538"]
+# Backward-compat aliases (list of codes only, for existing endpoints)
+TOP20_CRYPTO_CODES = [s.replace("USDT", "") for s in TOP20_CRYPTO]
+TOP50_TWSE_CODES = list(TOP50_TWSE.keys())
 
 DATA_DIR = "/Users/changrunlin/.openclaw/workspace/crypto-agent-platform/data"
 
@@ -45,13 +46,37 @@ async def dashboard():
         return HTMLResponse(content=f.read())
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Symbol API
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/symbols/crypto")
+async def get_symbols_crypto():
+    """Returns top 20 crypto symbols with display names"""
+    return {
+        "symbols": [
+            {"symbol": s, "display": s.replace("USDT", "")}
+            for s in TOP20_CRYPTO
+        ]
+    }
+
+@app.get("/api/symbols/twse")
+async def get_symbols_twse():
+    """Returns top 50 TWSE stocks with code and name"""
+    return {
+        "symbols": [
+            {"code": code, "name": name}
+            for code, name in TOP50_TWSE.items()
+        ]
+    }
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Crypto Endpoints
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/crypto/list")
 async def get_crypto_list():
     """Returns top 20 crypto symbols for the selector"""
-    return [{"symbol": s, "name": s} for s in TOP20_CRYPTO]
+    return [{"symbol": s, "name": s} for s in TOP20_CRYPTO_CODES]
 
 @app.get("/api/crypto/klines")
 async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h"), limit: int = 300):
@@ -65,7 +90,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
             return data[:limit]
         except:
             pass
-    
+
     # Fall back to Binance
     url = "https://api.binance.com/api/v3/klines"
     binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
@@ -73,7 +98,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url, params=params)
         raw = r.json()
-    
+
     # Binance format: [timestamp, open, high, low, close, volume, ...]
     result = []
     for d in raw:
@@ -97,7 +122,7 @@ async def get_crypto_quote(symbol: str = Query("")):
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.get(url, params=params)
         data = r.json()
-    
+
     return {
         "symbol": symbol.upper(),
         "price": float(data.get("lastPrice", 0)),
@@ -111,7 +136,7 @@ async def get_crypto_quote(symbol: str = Query("")):
 @app.get("/api/twse/list")
 async def get_twse_list():
     """Returns top 50 TWSE stocks for the selector"""
-    return [{"code": c, "name": c} for c in TOP50_TWSE]
+    return [{"code": c, "name": c} for c in TOP50_TWSE_CODES]
 
 def _twse_headers():
     return {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
@@ -404,32 +429,13 @@ async def get_rankings():
 
 # TWSE API routes (proxy to port 5008)
 @app.get("/api/twse/quote/{code}")
-async def twse_quote(code: str):
+async def twse_quote_proxy(code: str):
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(f"http://localhost:5008/api/twse/quote/{code}")
         return r.json()
 
 @app.get("/api/twse/klines/{code}")
-async def twse_klines(code: str, interval: str = "D", limit: int = 300):
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(f"http://localhost:5008/api/twse/klines/{code}?interval={interval}&limit={limit}")
-        return r.json()
-
-@app.get("/api/twse/anomalies/realtime")
-async def twse_anomalies():
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get("http://localhost:5008/api/twse/anomalies/realtime")
-        return r.json()
-
-# TWSE API proxy routes (to port 5008)
-@app.get("/api/twse/quote/{code}")
-async def twse_quote(code: str):
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(f"http://localhost:5008/api/twse/quote/{code}", params={"interval": "D"})
-        return r.json()
-
-@app.get("/api/twse/klines/{code}")
-async def twse_klines(code: str, interval: str = "D", limit: int = 300):
+async def twse_klines_proxy(code: str, interval: str = "D", limit: int = 300):
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(f"http://localhost:5008/api/twse/klines/{code}?interval={interval}&limit={limit}")
         return r.json()

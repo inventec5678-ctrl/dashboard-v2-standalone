@@ -2,35 +2,35 @@
 
 export function switchMarket(market) {
     // 切換前先銷毀舊 chart 實例，防止記憶體 leak
-    if (window.chart) {
-        window.chart.remove();
-        window.chart = null;
-        window.candleSeries = null;
+    if (window.CRYPTOChart) {
+        window.CRYPTOChart.remove();
+        window.CRYPTOChart = null;
+        window.CRYPTOCandleSeries = null;
     }
-    if (window.volChart) {
-        window.volChart.remove();
-        window.volChart = null;
-        window.volSeries = null;
+    if (window.CRYPTOVolChart) {
+        window.CRYPTOVolChart.remove();
+        window.CRYPTOVolChart = null;
+        window.CRYPTOVolSeries = null;
     }
-    if (window.twseChart) {
-        window.twseChart.remove();
-        window.twseChart = null;
-        window.twseCandleSeries = null;
+    if (window.TWSEChart) {
+        window.TWSEChart.remove();
+        window.TWSEChart = null;
+        window.TWSECandleSeries = null;
     }
-    if (window.twseVolChart) {
-        window.twseVolChart.remove();
-        window.twseVolChart = null;
-        window.twseVolSeries = null;
+    if (window.TWSEVolChart) {
+        window.TWSEVolChart.remove();
+        window.TWSEVolChart = null;
+        window.TWSEVolSeries = null;
     }
-    if (window.usChart) {
-        window.usChart.remove();
-        window.usChart = null;
-        window.usCandleSeries = null;
+    if (window.USChart) {
+        window.USChart.remove();
+        window.USChart = null;
+        window.USCandleSeries = null;
     }
-    if (window.usVolChart) {
-        window.usVolChart.remove();
-        window.usVolChart = null;
-        window.usVolSeries = null;
+    if (window.USVolChart) {
+        window.USVolChart.remove();
+        window.USVolChart = null;
+        window.USVolSeries = null;
     }
 
     window.currentMarket = market;

@@ -2,28 +2,73 @@
 
 // 通用標的載入
 export async function loadSymbols(market) {
-    var resp = await fetch(window.API_BASE + '/symbols/' + market.toLowerCase());
-    var data = await resp.json();
-    var select = document.getElementById('symbol-select-' + market);
-    if (!select) return;
-    select.innerHTML = '';
-    data.symbols.forEach(function(s) {
-        var opt = document.createElement('option');
-        opt.value = market === 'TWSE' ? s.code : s.symbol;
-        opt.textContent = (market === 'TWSE' ? s.code : s.symbol) + (s.name ? ' ' + s.name : '');
-        select.appendChild(opt);
-    });
+    // 使用 querySelector 找 select（更寬鬆的匹配）
+    var select = document.querySelector('[id="symbol-select-' + market + '"]');
+    if (!select) {
+        // 嘗試各种可能的大小寫組合
+        var attempts = [
+            'symbol-select-' + market.toLowerCase(),
+            'symbol-select-' + market.toUpperCase(),
+            'symbol-select-' + market
+        ];
+        for (var i = 0; i < attempts.length; i++) {
+            select = document.getElementById(attempts[i]);
+            if (select) break;
+        }
+    }
+    if (!select) {
+        console.warn('[chart_market] loadSymbols: select not found for', market, '- all IDs:', Array.from(document.querySelectorAll('[id^="symbol-select"]')).map(function(e) { return e.id; }));
+        return;
+    }
+
+    var url;
+    if (market === 'CRYPTO') {
+        url = window.API_BASE + '/symbols/crypto';
+    } else if (market === 'TWSE') {
+        url = window.API_BASE + '/symbols/twse';
+    } else {
+        url = window.API_BASE + '/symbols/' + market.toLowerCase();
+    }
+
+    try {
+        var resp = await fetch(url);
+        var data = await resp.json();
+        if (!data.symbols) { console.warn('no symbols in data'); return; }
+        select.innerHTML = '';
+        data.symbols.forEach(function(s) {
+            var opt = document.createElement('option');
+            if (market === 'TWSE') {
+                opt.value = s.code;
+                opt.textContent = s.code + (s.name ? ' ' + s.name : '');
+            } else {
+                opt.value = s.symbol;
+                opt.textContent = (s.display || s.symbol) + (s.name ? ' ' + s.name : '');
+            }
+            select.appendChild(opt);
+        });
+        console.log('[chart_market] loadSymbols done for', market, ':', select.options.length, 'options');
+    } catch (e) {
+        console.error('[chart_market] loadSymbols error', market, e);
+    }
 }
 
 export function loadQuote(market, symbol) {
-    var url = window.API_BASE + '/' + market.toLowerCase() + '/quote/' + symbol;
+    var url;
+    if (market === 'CRYPTO') {
+        url = window.API_BASE + '/crypto/quote?symbol=' + symbol;
+    } else if (market === 'TWSE') {
+        url = window.API_BASE + '/twse/quote?stock=' + symbol;
+    } else {
+        url = window.API_BASE + '/us/quote/' + symbol;
+    }
     fetch(url)
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
             if (data.error) return;
-            var priceEl = document.getElementById('price-' + market);
-            var changeEl = document.getElementById('change-' + market);
-            var volEl = document.getElementById('volume-' + market);
+            var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : 'us';
+            var priceEl = document.getElementById('price-' + mkt);
+            var changeEl = document.getElementById('change-' + mkt);
+            var volEl = document.getElementById('volume-' + mkt);
             if (priceEl) {
                 priceEl.textContent = window.fmtPrice(data.price);
                 priceEl.className = 'chart-price ' + (data.change_pct >= 0 ? 'up' : 'dn');
@@ -34,7 +79,7 @@ export function loadQuote(market, symbol) {
             }
             if (volEl) volEl.textContent = 'Vol: ' + window.fmtNum(data.volume);
         })
-        .catch(function() {});
+        .catch(function(e) { console.error('[chart_market] loadQuote error', market, e); });
 }
 
 export function loadChart(market, symbol, tf) {
@@ -43,22 +88,33 @@ export function loadChart(market, symbol, tf) {
         '4h': '4h', '1h': '1h', '15m': '15m', '5m': '5m'
     };
     var interval = intervalMap[tf] || '1d';
-    var url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval;
+
+    var url;
+    if (market === 'CRYPTO') {
+        url = window.API_BASE + '/klines?symbol=' + symbol + '&interval=' + interval;
+    } else {
+        url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval;
+    }
+
     fetch(url)
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
-            if (!data || !data.data || !data.data.length) return;
+            if (!data || !data.data || !data.data.length) {
+                console.warn('[chart_market] No data for', market, symbol);
+                return;
+            }
             renderChart(market, data.data);
         })
-        .catch(function(e) { console.error('Chart load error', market, e); });
+        .catch(function(e) { console.error('[chart_market] Chart load error', market, symbol, url, e); });
 }
 
 function renderChart(market, klines) {
-    var chartId = 'chart-' + market;
-    var volId = 'chart-' + market + '-vol';
+    var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : market.toLowerCase();
+    var chartId = 'chart-' + mkt;
+    var volId = 'chart-' + mkt + '-vol';
     var container = document.getElementById(chartId);
     var volContainer = document.getElementById(volId);
-    if (!container) return;
+    if (!container) { console.warn('[chart_market] Chart container not found:', chartId); return; }
 
     function normTime(t) {
         if (typeof t === 'number') return t > 1e12 ? Math.floor(t / 1000) : t;
@@ -84,7 +140,7 @@ function renderChart(market, klines) {
     // Destroy old instance
     var oldChartKey = market + 'Chart';
     if (window[oldChartKey]) {
-        window[oldChartKey].remove();
+        try { window[oldChartKey].remove(); } catch(e) {}
         window[oldChartKey] = null;
         window[market + 'CandleSeries'] = null;
         window[market + 'VolChart'] = null;
@@ -120,7 +176,6 @@ function renderChart(market, klines) {
         volSeries.setData(vdata);
         volChart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-        // Sync time scales
         chart.timeScale().subscribeVisibleTimeRangeChange(function(range) {
             if (volChart && range && range.left != null) volChart.timeScale().setVisibleLogicalRange(range);
         });
@@ -128,8 +183,8 @@ function renderChart(market, klines) {
             if (chart && range && range.left != null) chart.timeScale().setVisibleLogicalRange(range);
         });
 
-        // Resize handler
         var key = 'resize_' + market;
+        if (window[key]) window.removeEventListener('resize', window[key]);
         window[key] = function() {
             if (chart) { var c = document.getElementById(chartId); if (c) chart.applyOptions({ width: c.clientWidth }); }
             if (volChart) { var vc = document.getElementById(volId); if (vc) volChart.applyOptions({ width: vc.clientWidth }); }
@@ -139,10 +194,9 @@ function renderChart(market, klines) {
 
     chart.timeScale().fitContent();
 
-    // Update price display from last candle
     var last = cdata[cdata.length - 1];
     if (last) {
-        var priceEl = document.getElementById('price-' + market);
+        var priceEl = document.getElementById('price-' + mkt);
         if (priceEl) { priceEl.textContent = last.close.toLocaleString(); priceEl.className = 'chart-price'; }
     }
 

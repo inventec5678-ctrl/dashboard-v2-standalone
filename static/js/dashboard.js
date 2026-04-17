@@ -22,6 +22,8 @@ window.escHtml = formatters.escHtml;
 window.currentTF = 'D';
 window.currentSym = 'BTCUSDT';
 window.currentMarket = 'CRYPTO';
+window.currentCRYPTOTF = 'D';
+window.currentCRYPTOStock = 'BTCUSDT';
 window.currentTWSEStock = '2330';
 window.currentUSStock = 'AAPL';
 window.currentUSTF = 'D';
@@ -106,9 +108,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ── Initial symbol list loading ──
-    window.loadSymbols('CRYPTO');
-    window.loadSymbols('TWSE');
-    window.loadSymbols('US');
+    setTimeout(function() {
+        window.loadSymbols('CRYPTO');
+        window.loadSymbols('TWSE');
+        window.loadSymbols('US');
+    }, 100);
 
     // ── Initial load ──
     window.switchMarket('CRYPTO');

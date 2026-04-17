@@ -3,9 +3,7 @@ import * as formatters from './utils/formatters.js';
 import * as dom from './utils/dom-helpers.js';
 import * as api from './modules/api.js';
 import * as marketSwitch from './modules/market_switch.js';
-import * as chartCrypto from './modules/chart_crypto.js';
-import * as chartTWSE from './modules/chart_twse.js';
-import * as chartUS from './modules/chart_us.js';
+import * as chartMarket from './modules/chart_market.js';
 import * as strategies from './modules/strategies.js';
 import * as modal from './modules/modal_strategy.js';
 import * as sentiment from './modules/sentiment.js';
@@ -21,8 +19,8 @@ window.fmtNum = formatters.fmtNum;
 window.escHtml = formatters.escHtml;
 
 // ── Expose global state ──
-window.currentTF = '4h';
-window.currentSym = 'BTC';
+window.currentTF = 'D';
+window.currentSym = 'BTCUSDT';
 window.currentMarket = 'CRYPTO';
 window.currentTWSEStock = '2330';
 window.currentUSStock = 'AAPL';
@@ -30,26 +28,22 @@ window.currentUSTF = 'D';
 window._twseSearchTimer = null;
 window.lastSuccessfulUpdate = null;
 
+// ── Expose unified market functions globally ──
+window.onSymbolChange = chartMarket.onSymbolChange;
+window.loadQuote = chartMarket.loadQuote;
+window.loadChart = chartMarket.loadChart;
+window.loadSymbols = chartMarket.loadSymbols;
+
 // ── Expose utility helpers ──
 window.copyPrice = dom.copyPrice;
 window._highlightCryptoButton = dom._highlightCryptoButton;
 window.updateBadge = updateBadge;
 window.formatTime = formatTime;
 
-// ── Expose module functions globally (for inline onclick handlers) ──
+// ── Expose market-switch (tab switching only, chart logic removed) ──
 window.switchMarket = marketSwitch.switchMarket;
-window.initChart = chartCrypto.initChart;
-window.loadChartData = chartCrypto.loadChartData;
-window.loadTWSEQuote = chartTWSE.loadTWSEQuote;
-window.loadTWSEChart = chartTWSE.loadTWSEChart;
-window.onTWSESearchKeyup = chartTWSE.onTWSESearchKeyup;
-window.selectTWSEResult = chartTWSE.selectTWSEResult;
-window.onTWSEStockChange = chartTWSE.onTWSEStockChange;
-window.onCryptoSymbolChange = chartTWSE.onCryptoSymbolChange;
-window.loadUSQuote = chartUS.loadUSQuote;
-window.loadUSChart = chartUS.loadUSChart;
-window.onUSStockChange = chartUS.onUSStockChange;
-window.populateUSSymbolSelect = chartUS.populateUSSymbolSelect;
+
+// ── Expose strategy functions globally ──
 window.loadStrategies = strategies.loadStrategies;
 window.computeConsensus = strategies.computeConsensus;
 window.renderStrategyOverview = strategies.renderStrategyOverview;
@@ -57,11 +51,14 @@ window.renderRankingTable = strategies.renderRankingTable;
 window.rankSetSort = strategies.rankSetSort;
 window.doRankSort = strategies.doRankSort;
 
+// ── Expose modal functions globally ──
 window.openStrategyModalById = modal.openStrategyModalById;
 window._doRenderModal = modal._doRenderModal;
 window.closeStrategyModal = modal.closeStrategyModal;
 window.togglePriceLine = modal.togglePriceLine;
 window.clearPriceLines = modal.clearPriceLines;
+
+// ── Expose sentiment functions globally ──
 window.setChip = sentiment.setChip;
 window.renderMarketSentiment = sentiment.renderMarketSentiment;
 
@@ -93,41 +90,29 @@ window.switchTab = function switchTab(tab) {
 
 // ── Event Bindings ──
 document.addEventListener('DOMContentLoaded', function() {
-    // Crypto TF buttons
-    document.querySelectorAll('#crypto-tf-buttons .tf-btn').forEach(function(btn) {
+    // ── Unified TF button event delegation ──
+    document.querySelectorAll('.chart-tf .tf-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
-            document.querySelectorAll('#crypto-tf-buttons .tf-btn').forEach(function(b){ b.classList.remove('active'); });
-            btn.classList.add('active');
-            window.currentTF = btn.dataset.tf;
-            window.loadChartData(window.currentSym, window.currentTF);
+            var market = btn.dataset.market;
+            var tf = btn.dataset.tf;
+            if (!market) return;
+            var sym = window['current' + market + 'Stock'];
+            window['current' + market + 'TF'] = tf;
+            document.querySelectorAll('#tf-' + market + ' .tf-btn').forEach(function(b) {
+                b.classList.toggle('active', b === btn);
+            });
+            window.loadChart(market, sym, tf);
         });
     });
 
-    // TWSE TF buttons
-    document.querySelectorAll('#twse-tf-buttons .tf-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('#twse-tf-buttons .tf-btn').forEach(function(b){ b.classList.remove('active'); });
-            btn.classList.add('active');
-            var twseTf = btn.dataset.tf;
-            window.loadTWSEChart(window.currentTWSEStock, twseTf);
-        });
-    });
+    // ── Initial symbol list loading ──
+    window.loadSymbols('CRYPTO');
+    window.loadSymbols('TWSE');
+    window.loadSymbols('US');
 
-    // US TF buttons
-    document.querySelectorAll('#us-tf-buttons .tf-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('#us-tf-buttons .tf-btn').forEach(function(b){ b.classList.remove('active'); });
-            btn.classList.add('active');
-            var usTf = btn.dataset.tf;
-            window.currentUSTF = usTf;
-            window.loadUSChart(window.currentUSStock, usTf);
-        });
-    });
-
-    // Initial load
+    // ── Initial load ──
     window.switchMarket('CRYPTO');
     window.loadStrategies();
-    window.populateUSSymbolSelect();
 });
 
 // Fallback: run immediately if DOM already loaded

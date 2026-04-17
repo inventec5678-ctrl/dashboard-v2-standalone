@@ -87,7 +87,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
         try:
             with open(cache_file, "r") as f:
                 data = json.load(f)
-            return data[:limit]
+            return {"symbol": symbol.upper(), "interval": interval, "data": data[:limit]}
         except:
             pass
 
@@ -111,7 +111,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
             "close": float(d[4]),
             "volume": float(d[5]),
         })
-    return result
+    return {"symbol": binance_symbol, "interval": interval, "data": result}
 
 @app.get("/api/crypto/quote")
 async def get_crypto_quote(symbol: str = Query("")):
@@ -262,9 +262,10 @@ async def twse_klines(stock: str = Query(""), interval: str = Query(""), limit: 
     if not os.path.exists(filepath):
         return JSONResponse(content={"error": f"No data for {stock}"}, status_code=404)
     with open(filepath) as f:
-        data = json.load(f)
+        raw_data = json.load(f)
     # limit: take most recent N records
-    return data[-limit:]
+    data = raw_data[-limit:]
+    return {"data": data}
 
 @app.get("/api/twse/intraday")
 async def twse_intraday(stock: str = Query("")):
@@ -365,7 +366,7 @@ async def get_klines(symbol: str = Query(""), interval: str = Query(""), limit: 
             "close": float(d[4]),
             "volume": float(d[5]),
         })
-    return result
+    return {"symbol": binance_symbol, "interval": interval, "data": result}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Backend proxy routes (proxied to port 5008)
@@ -438,7 +439,10 @@ async def twse_quote_proxy(code: str):
 async def twse_klines_proxy(code: str, interval: str = "D", limit: int = 300):
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(f"http://localhost:5008/api/twse/klines/{code}?interval={interval}&limit={limit}")
-        return r.json()
+        raw = r.json()
+    if isinstance(raw, list):
+        return {"data": raw[-limit:]}
+    return raw
 
 @app.get("/api/twse/anomalies/realtime")
 async def twse_anomalies_realtime():
@@ -488,7 +492,7 @@ async def us_klines(symbol: str, interval: str = "1d", limit: int = 300):
     if not os.path.exists(path):
         return JSONResponse(content={"error": f"No data for {symbol} {interval}"}, status_code=404)
     df = pd.read_parquet(path).tail(limit)
-    klines = []
+    data = []
     for idx, row in df.iterrows():
         ts = idx
         if hasattr(ts, 'timestamp'):
@@ -496,8 +500,15 @@ async def us_klines(symbol: str, interval: str = "1d", limit: int = 300):
         elif isinstance(ts, str):
             from datetime import datetime
             ts = int(datetime.parse(ts).timestamp())
-        klines.append([ts, float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"]), float(row["volume"])])
-    return {"symbol": symbol.upper(), "interval": interval_key, "klines": klines}
+        data.append({
+            "time": ts,
+            "open": float(row["open"]),
+            "high": float(row["high"]),
+            "low": float(row["low"]),
+            "close": float(row["close"]),
+            "volume": float(row["volume"]),
+        })
+    return {"symbol": symbol.upper(), "interval": interval_key, "data": data}
 
 @app.get("/api/twse/stocks")
 async def twse_stocks():

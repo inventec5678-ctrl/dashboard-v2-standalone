@@ -59,8 +59,8 @@ export function switchMarket(market) {
         document.getElementById('tab-twse').style.display = 'block';
         document.getElementById('tab-crypto').style.display = 'none';
         document.getElementById('tab-strategy').style.display = 'none';
-        window.loadTWSEQuote(window.currentTWSEStock);
-        window.loadTWSEChart(window.currentTWSEStock, 'D');
+        window.loadQuote(market, window['current' + market + 'Stock']);
+        window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
         // Clear ranking table for TWSE mode
         window.renderRankingTable([]);
         var stratConsBody = document.getElementById('strategy-consensus-body');
@@ -88,8 +88,8 @@ export function switchMarket(market) {
         document.querySelectorAll('#crypto-tf-buttons .tf-btn').forEach(function(b) {
             b.classList.toggle('active', b.dataset.tf === window.currentTF);
         });
-        window.initChart();
-        window.loadChartData(window.currentSym, window.currentTF);
+        window.loadQuote(market, window['current' + market + 'Stock']);
+        window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
         window._highlightCryptoButton('BTCUSDT');
         // Reload crypto strategies when switching back
         window.loadStrategies();
@@ -109,19 +109,15 @@ export function switchMarket(market) {
         document.getElementById('tab-strategy').style.display = 'none';
         var titleEl = document.getElementById('topbar-title');
         if (titleEl) titleEl.textContent = '🇺🇸 美股量化交易平台';
-        // 載入 US 報價與圖表
-        window.loadUSQuote(window.currentUSStock);
-        window.loadUSChart(window.currentUSStock, window.currentUSTF);
-        // Resize chart in case it was initialized in a hidden container
+        window.loadQuote(market, window['current' + market + 'Stock']);
+        window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
         setTimeout(function() {
-            if (window.usChart) window.usChart.resize();
-            if (window.usVolChart) window.usVolChart.resize();
+            if (window.USChart) window.USChart.resize();
+            if (window.USVolChart) window.USVolChart.resize();
         }, 50);
-        // 清除其他市場的策略顯示
         window.renderRankingTable([]);
         var stratConsBody = document.getElementById('strategy-consensus-body');
         if (stratConsBody) stratConsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">美股模式，暫無策略資料</div>';
-        // 重置情緒晶片
         document.getElementById('sc-rsi-val').textContent = '—';
         document.getElementById('sc-regime-val').textContent = '—';
         document.getElementById('sc-momentum-val').textContent = '—';

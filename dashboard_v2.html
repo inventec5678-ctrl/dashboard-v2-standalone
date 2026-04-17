@@ -29,58 +29,34 @@
 
         <!-- Tab Bar -->
         <div style="background:var(--bg-secondary);border-bottom:1px solid var(--border-color);padding:0 24px;display:flex;gap:2px;">
-            <button onclick="switchMarket('CRYPTO')" id="tab-btn-crypto" style="background:#333;color:#fff;border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">🪙 Crypto</button>
-            <button onclick="switchMarket('TWSE')" id="tab-btn-twse" style="background:transparent;color:var(--text-muted);border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">🏦 台股</button>
-            <button onclick="switchMarket('US')" id="tab-btn-us" style="background:transparent;color:var(--text-muted);border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">🇺🇸 美股</button>
-            <button onclick="switchMarket('STRATEGY')" id="tab-btn-strategy" style="background:transparent;color:var(--text-muted);border:none;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;border-radius:6px 6px 0 0;">📊 策略</button>
+            <button id="tab-btn-crypto" class="tab-btn" onclick="switchMarket('CRYPTO')">🪙 Crypto</button>
+            <button id="tab-btn-twse" class="tab-btn" onclick="switchMarket('TWSE')">🏦 台股</button>
+            <button id="tab-btn-us" class="tab-btn" onclick="switchMarket('US')">🇺🇸 美股</button>
+            <button id="tab-btn-strategy" class="tab-btn" onclick="switchMarket('STRATEGY')">📊 策略</button>
                     </div>
 
         <div class="page">
             <!-- Crypto Tab (default visible) -->
             <div id="tab-crypto" class="tab-content">
-
-            <!-- Chart (Crypto) -->
-            <div class="section" id="chart-crypto-section">
-                <div class="section-title" id="chart-section-title">比特幣 K 線</div>
-                <div class="chart-wrap">
-                    <div class="chart-header">
-                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                            <!-- Crypto symbol -->
-                            <div class="sym-bar" style="display:flex;align-items:center;gap:3px;flex-wrap:wrap" id="crypto-sym-bar">
-                                <button onclick="onCryptoSymbolChange('BTCUSDT')" id="btn-BTCUSDT" style="background:var(--accent-blue);border:1px solid var(--accent-blue);color:white;border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer;font-weight:700">BTC</button>
-                                <button onclick="onCryptoSymbolChange('ETHUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">ETH</button>
-                                <button onclick="onCryptoSymbolChange('SOLUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">SOL</button>
-                                <button onclick="onCryptoSymbolChange('BNBUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">BNB</button>
-                                <button onclick="onCryptoSymbolChange('XRPUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">XRP</button>
-                                <button onclick="onCryptoSymbolChange('ADAUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">ADA</button>
-                                <button onclick="onCryptoSymbolChange('DOGEUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">DOGE</button>
-                                <button onclick="onCryptoSymbolChange('AVAXUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">AVAX</button>
-                                <button onclick="onCryptoSymbolChange('DOTUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">DOT</button>
-                                <button onclick="onCryptoSymbolChange('LINKUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">LINK</button>
-                                <button onclick="onCryptoSymbolChange('MATICUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">MATIC</button>
-                                <button onclick="onCryptoSymbolChange('UNIUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">UNI</button>
-                                <button onclick="onCryptoSymbolChange('ATOMUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">ATOM</button>
-                                <button onclick="onCryptoSymbolChange('LTCUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">LTC</button>
-                                <button onclick="onCryptoSymbolChange('ETCUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">ETC</button>
-                                <button onclick="onCryptoSymbolChange('XLMUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">XLM</button>
-                                <button onclick="onCryptoSymbolChange('NEARUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">NEAR</button>
-                                <button onclick="onCryptoSymbolChange('APTUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">APT</button>
-                                <button onclick="onCryptoSymbolChange('ARBUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">ARB</button>
-                                <button onclick="onCryptoSymbolChange('OPUSDT')" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:4px;padding:2px 8px;font-size:11px;font-family:var(--font-mono);cursor:pointer">OP</button>
+                <div class="section">
+                    <div class="section-title" id="tab-title-crypto">CRYPTO K 線</div>
+                    <div class="chart-wrap">
+                        <div class="chart-header">
+                            <select id="symbol-select-crypto" class="sym-select" onchange="onSymbolChange('CRYPTO', this.value)">
+                                <option value="">載入中...</option>
+                            </select>
+                            <span id="price-crypto" class="chart-price price-display">—</span>
+                            <span id="change-crypto" class="change-display" style="font-size:11px;margin-left:6px;font-family:var(--font-mono)">—</span>
+                            <span id="volume-crypto" style="font-size:10px;color:var(--text-muted);margin-left:6px">—</span>
+                            <div class="chart-tf" id="tf-crypto">
+                                <button class="tf-btn active" data-tf="D" data-market="CRYPTO">日</button>
+                                <button class="tf-btn" data-tf="W" data-market="CRYPTO">週</button>
+                                <button class="tf-btn" data-tf="M" data-market="CRYPTO">月</button>
                             </div>
-                                    </div>
                         </div>
-                        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-                            <div class="chart-tf" id="crypto-tf-buttons">
-                                <button class="tf-btn" data-tf="15m">15m</button>
-                                <button class="tf-btn active" data-tf="4h">4H</button>
-                                <button class="tf-btn" data-tf="1d">1D</button>
-                            </div>
-                            <button id="clear-chart-lines-btn" onclick="clearPriceLines()" style="margin-left:8px;font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--border-color);background:transparent;color:var(--text-muted);cursor:pointer;display:none">🗑 清除疊加線</button>
-                        </div>
+                        <div id="chart-crypto" class="chart-main" style="height:280px"></div>
+                        <div id="chart-crypto-vol" class="chart-vol" style="height:80px;border-top:1px solid var(--border-color)"></div>
                     </div>
-                    <div id="chart-container" class="chart-main"></div>
-                    <div id="chart-container-vol" class="chart-vol"></div>
                 </div>
             </div>
 
@@ -89,103 +65,52 @@
             <!-- TWSE Tab Content -->
             <div id="tab-twse" class="tab-content" style="display:none;">
                 <div class="section">
-                    <div class="section-title">台股 K 線</div>
+                    <div class="section-title" id="tab-title-twse">TWSE K 線</div>
                     <div class="chart-wrap">
                         <div class="chart-header">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                                <select id="twse-stock-select-v2" onchange="onTWSEStockChange(this.value)" class="sym-select" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:3px 8px;font-size:11px;font-family:var(--font-mono)">
-                                    <option value="2330">2330 台積電</option>
-                                    <option value="2317">2317 鴻海</option>
-                                    <option value="2454">2454 聯發科</option>
-                                    <option value="2881">2881 兆豐金</option>
-                                    <option value="2882">2882 彰銀</option>
-                                    <option value="2603">2603 長榮</option>
-                                    <option value="2615">2615 萬海</option>
-                                    <option value="2303">2303 聯電</option>
-                                    <option value="3008">3008 大立光</option>
-                                    <option value="2002">2002 台泥</option>
-                                    <option value="1101">1101 台塑</option>
-                                    <option value="1216">1216 統一</option>
-                                    <option value="1301">1301 台化</option>
-                                    <option value="1326">1326 台化</option>
-                                    <option value="1402">1402 遠東新</option>
-                                    <option value="1704">1704 榮成</option>
-                                    <option value="1723">1723 中石化</option>
-                                    <option value="2108">2108 鼎元</option>
-                                    <option value="2201">2201 裕隆</option>
-                                    <option value="2301">2301 光寶科</option>
-                                    <option value="2352">2352 佳世達</option>
-                                    <option value="2371">2371 大同</option>
-                                    <option value="2408">2408 友達</option>
-                                    <option value="2412">2412 中華電</option>
-                                    <option value="2474">2474 可成</option>
-                                    <option value="2501">2501 冠軍</option>
-                                    <option value="2609">2609 陽明</option>
-                                    <option value="2701">2701 燦坤</option>
-                                    <option value="2801">2801 華南金</option>
-                                    <option value="2812">2812 台中銀</option>
-                                    <option value="2834">2834 國票金</option>
-                                    <option value="2880">2880 華南金</option>
-                                    <option value="2883">2883 開發金</option>
-                                    <option value="2884">2884 玉山金</option>
-                                    <option value="2885">2885 元大金</option>
-                                    <option value="2886">2886 兆豐金</option>
-                                    <option value="2891">2891 中信金</option>
-                                    <option value="2892">2892 玉山金</option>
-                                    <option value="2912">2912 統一超</option>
-                                    <option value="3034">3034 聯詠</option>
-                                    <option value="3231">3231 緯創</option>
-                                    <option value="3443">3443 創意</option>
-                                    <option value="3661">3661 世芯</option>
-                                    <option value="3702">3702 巨大</option>
-                                    <option value="3711">3711 裕日車</option>
-                                    <option value="4904">4904 遠傳</option>
-                                    <option value="4938">4938 和碩</option>
-                                    <option value="5871">5871 中租-KY</option>
-                                    <option value="5880">5880 合庫金</option>
-                                    <option value="6002">6002 潤泰新</option>
-                                </select>
-                                <span id="twse-price-v2" class="chart-price price-display">—</span>
-                                <span id="twse-change-v2" class="change-display" style="font-size:11px;margin-left:6px;font-family:var(--font-mono)">—</span>
-                                <span id="twse-volume-v2" style="font-size:10px;color:var(--text-muted);margin-left:6px"></span>
-                            </div>
-                            <div class="chart-tf">
-                                <button class="tf-btn active" data-tf="D" onclick="onTWSEStockChange(currentTWSEStock)">日</button>
-                                <button class="tf-btn" data-tf="W" onclick="onTWSEStockChange(currentTWSEStock)">週</button>
-                                <button class="tf-btn" data-tf="M" onclick="onTWSEStockChange(currentTWSEStock)">月</button>
+                            <select id="symbol-select-twse" class="sym-select" onchange="onSymbolChange('TWSE', this.value)">
+                                <option value="">載入中...</option>
+                            </select>
+                            <span id="price-twse" class="chart-price price-display">—</span>
+                            <span id="change-twse" class="change-display" style="font-size:11px;margin-left:6px;font-family:var(--font-mono)">—</span>
+                            <span id="volume-twse" style="font-size:10px;color:var(--text-muted);margin-left:6px">—</span>
+                            <div class="chart-tf" id="tf-twse">
+                                <button class="tf-btn active" data-tf="D" data-market="TWSE">日</button>
+                                <button class="tf-btn" data-tf="W" data-market="TWSE">週</button>
+                                <button class="tf-btn" data-tf="M" data-market="TWSE">月</button>
                             </div>
                         </div>
-                        <div id="chart-container-twse" class="chart-main" style="height:280px"></div>
-                        <div id="chart-container-twse-vol" class="chart-vol" style="height:80px;border-top:1px solid var(--border-color)"></div>
+                        <div id="chart-twse" class="chart-main" style="height:280px"></div>
+                        <div id="chart-twse-vol" class="chart-vol" style="height:80px;border-top:1px solid var(--border-color)"></div>
                     </div>
                 </div>
+            </div>
 
 
 
             <!-- US Tab Content -->
             <div id="tab-us" class="tab-content" style="display:none;">
                 <div class="section">
-                    <div class="section-title">美股 K 線</div>
+                    <div class="section-title" id="tab-title-us">US K 線</div>
                     <div class="chart-wrap">
                         <div class="chart-header">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                                <select id="us-stock-select" onchange="onUSStockChange(this.value)" class="sym-select" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);border-radius:6px;padding:3px 8px;font-size:11px;font-family:var(--font-mono)">
-                                    <!-- Options 由 JS 動態填入 -->
-                                </select>
-                                <span id="us-price-v2" class="price-display">—</span>
-                                <span id="us-change-v2" class="change-display" style="font-size:11px;margin-left:6px;font-family:var(--font-mono)">—</span>
-                                <span id="us-volume-v2" style="font-size:10px;color:var(--text-muted);margin-left:6px"></span>
-                            </div>
-                            <div class="chart-tf" id="us-tf-buttons">
-                                <button class="tf-btn active" data-tf="D" onclick="onUSStockChange(currentUSStock)">日</button>
-                                <button class="tf-btn" data-tf="W" onclick="onUSStockChange(currentUSStock)">週</button>
-                                <button class="tf-btn" data-tf="M" onclick="onUSStockChange(currentUSStock)">月</button>
+                            <select id="symbol-select-us" class="sym-select" onchange="onSymbolChange('US', this.value)">
+                                <option value="">載入中...</option>
+                            </select>
+                            <span id="price-us" class="chart-price price-display">—</span>
+                            <span id="change-us" class="change-display" style="font-size:11px;margin-left:6px;font-family:var(--font-mono)">—</span>
+                            <span id="volume-us" style="font-size:10px;color:var(--text-muted);margin-left:6px">—</span>
+                            <div class="chart-tf" id="tf-us">
+                                <button class="tf-btn active" data-tf="D" data-market="US">日</button>
+                                <button class="tf-btn" data-tf="W" data-market="US">週</button>
+                                <button class="tf-btn" data-tf="M" data-market="US">月</button>
                             </div>
                         </div>
-                        <div id="chart-container-us" class="chart-main" style="height:280px"></div>
-                        <div id="chart-container-us-vol" class="chart-vol" style="height:80px;border-top:1px solid var(--border-color)"></div>
+                        <div id="chart-us" class="chart-main" style="height:280px"></div>
+                        <div id="chart-us-vol" class="chart-vol" style="height:80px;border-top:1px solid var(--border-color)"></div>
                     </div>
                 </div>
+            </div>
 
 
             <!-- Strategy Tab Content -->

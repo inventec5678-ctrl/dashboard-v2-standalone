@@ -175,25 +175,39 @@ function renderChart(market, klines) {
         volSeries.setData(vdata);
         volChart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-        // Sync time scale when main chart time scale changes
-        chart.timeScale().subscribeVisibleTimeRangeChange(function(range) {
-            if (volChart && range && range.left != null) {
-                volChart.timeScale().setVisibleLogicalRange(range);
+        // Sync via timestamps (reliable, works across different bar counts)
+        chart.timeScale().subscribeVisibleTimeRangeChange(function() {
+            var newRange = chart.timeScale().getVisibleLogicalRange();
+            if (newRange && volChart) {
+                volChart.timeScale().setVisibleLogicalRange(newRange);
             }
         });
+        if (volChart) {
+            volChart.timeScale().subscribeVisibleTimeRangeChange(function() {
+                var newRange = volChart.timeScale().getVisibleLogicalRange();
+                if (newRange && chart) {
+                    chart.timeScale().setVisibleLogicalRange(newRange);
+                }
+            });
+        }
 
-        // Also sync when vol chart time scale changes (drag on vol chart)
-        volChart.timeScale().subscribeVisibleTimeRangeChange(function(range) {
-            if (chart && range && range.left != null) {
-                chart.timeScale().setVisibleLogicalRange(range);
-            }
-        });
-
-        // Sync crosshair: when crosshair moves on main chart, move vol chart crosshair
+        // Sync crosshair between main and vol chart
         chart.subscribeCrosshairMove(function(param) {
-            if (!param || !param.time || !volChart) return;
-            volChart.setCrosshairPosition(param.seriesData.size ? param.seriesData.size : param.logical, param.time, volSeries);
+            if (!param || !param.time || !volSeries || !volChart) return;
+            var logical = param.seriesData.get(candleSeries);
+            if (logical !== undefined) {
+                volChart.setCrosshairPosition(logical.close, param.time, volSeries);
+            }
         });
+        if (volChart) {
+            volChart.subscribeCrosshairMove(function(param) {
+                if (!param || !param.time || !candleSeries || !chart) return;
+                var logical = param.seriesData.get(volSeries);
+                if (logical !== undefined) {
+                    chart.setCrosshairPosition(logical.value, param.time, candleSeries);
+                }
+            });
+        }
 
         var key = 'resize_' + market;
         if (window[key]) window.removeEventListener('resize', window[key]);
@@ -202,6 +216,7 @@ function renderChart(market, klines) {
             if (volChart) { var vc = document.getElementById(volId); if (vc) volChart.applyOptions({ width: vc.clientWidth }); }
         };
         window.addEventListener('resize', window[key]);
+        window[key](); // Fire immediately to sync sizes
     }
 
     chart.timeScale().fitContent();

@@ -84,7 +84,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
     import pandas as pd
 
     # Try local parquet first
-    interval_key_map = {"1d": "1d", "1wk": "1w", "1mo": "1mo", "D": "1d", "W": "1w", "M": "1mo"}
+    interval_key_map = {"1d": "1d", "1h": "1h", "4h": "4h", "1wk": "1w", "1mo": "1mo", "15m": "15m", "D": "1d", "W": "1w", "M": "1mo"}
     interval_key = interval_key_map.get(interval, "1d")  # parquet key
     parquet_path = os.path.join(DATA_DIR, "ohlcvutc", "crypto", f"{symbol.upper()}_{interval_key}.parquet")
 
@@ -112,7 +112,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
     # Fall back to Binance for non-monthly intervals
     url = "https://api.binance.com/api/v3/klines"
     binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
-    binance_interval_map = {"1d": "1d", "1wk": "1w", "1mo": "1M", "D": "1d", "W": "1w", "M": "1M"}
+    binance_interval_map = {"1d": "1d", "1h": "1h", "4h": "4h", "1wk": "1w", "1mo": "1M", "15m": "15m", "5m": "5m", "D": "1d", "W": "1w", "M": "1M"}
     binance_interval = binance_interval_map.get(interval, interval)
     params = {"symbol": binance_symbol, "interval": binance_interval, "limit": limit}
     async with httpx.AsyncClient(timeout=30.0) as client:

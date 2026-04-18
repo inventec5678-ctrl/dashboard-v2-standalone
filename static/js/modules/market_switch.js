@@ -118,8 +118,20 @@ export function switchMarket(market) {
         window.renderRankingTable([]);
         var stratConsBody = document.getElementById('strategy-consensus-body');
         if (stratConsBody) stratConsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">美股模式，暫無策略資料</div>';
+        // Reset sentiment chips（與 TWSE 分支相同的邏輯）
+        var sentimentBar = document.getElementById('sentiment-bar');
+        if (sentimentBar) {
+            sentimentBar.querySelectorAll('.sentiment-chip').forEach(function(chip) {
+                chip.className = 'sentiment-chip neutral';
+            });
+        }
         document.getElementById('sc-rsi-val').textContent = '—';
+        document.getElementById('sc-rsi4h-val').textContent = '—';
+        document.getElementById('sc-ma20-val').textContent = '—';
+        document.getElementById('sc-ma50-val').textContent = '—';
+        document.getElementById('sc-ma200-val').textContent = '—';
         document.getElementById('sc-regime-val').textContent = '—';
         document.getElementById('sc-momentum-val').textContent = '—';
+        document.getElementById('sc-cross-val').textContent = '—';
     }
 }

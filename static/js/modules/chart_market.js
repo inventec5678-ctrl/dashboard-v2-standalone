@@ -156,6 +156,13 @@ export function loadChart(market, symbol, tf) {
         url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval + '&limit=' + limit;
     }
 
+    // 先查 cache（cache 有效就直接渲染，不 fetch）
+    var cached = _getCache(market, symbol, interval);
+    if (cached && _isCacheValid(market, symbol, interval)) {
+        renderChart(market, cached.bars);
+        return;
+    }
+
     fetch(url, { signal: _chartAbortController.signal })
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(raw) {
@@ -165,6 +172,7 @@ export function loadChart(market, symbol, tf) {
                 console.warn('[chart_market] No data for', market, symbol, 'url:', url);
                 return;
             }
+            _setCache(market, symbol, interval, klines); // 更新 cache
             renderChart(market, klines);
         })
         .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] Chart load error', market, symbol, url, e); });

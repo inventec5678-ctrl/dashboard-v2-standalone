@@ -84,7 +84,7 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
     import pandas as pd
 
     # Try local parquet first
-    interval_key_map = {"1d": "1d", "1h": "1h", "4h": "4h", "1wk": "1w", "1mo": "1mo", "15m": "15m", "D": "1d", "W": "1w", "M": "1mo"}
+    interval_key_map = {"1d": "1d", "1h": "1h", "4h": "4h", "1wk": "1wk", "1mo": "1mo", "15m": "15m", "D": "1d", "W": "1wk", "M": "1mo"}
     interval_key = interval_key_map.get(interval, "1d")  # parquet key
     parquet_path = os.path.join(DATA_DIR, "ohlcvutc", "crypto", f"{symbol.upper()}_{interval_key}.parquet")
 
@@ -277,7 +277,7 @@ async def twse_daily(stock: str = Query(""), months: int = 6):
 async def twse_klines(stock: str = Query(""), interval: str = Query(""), limit: int = 300):
     """Serve TWSE klines: 1d from JSON, 1wk/1mo from parquet"""
     import pandas as pd
-    interval_key_map = {"1d": "1d", "1wk": "1w", "1mo": "1mo", "D": "1d", "W": "1w", "M": "1mo"}
+    interval_key_map = {"1d": "1d", "1wk": "1wk", "1mo": "1mo", "D": "1d", "W": "1wk", "M": "1mo"}
     interval_key = interval_key_map.get(interval, "1d")
 
     # Try parquet first (for 1wk/1mo, or if 1d parquet exists)

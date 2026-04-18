@@ -356,3 +356,10 @@
             .page { padding: var(--space-md); }
         }
 
+        /* ── Mobile chart height & TF buttons ── */
+        @media (max-width: 600px) {
+            #chart-crypto, #chart-twse, #chart-us { height: clamp(240px, 50vw, 320px); }
+            .chart-vol { height: clamp(60px, 15vw, 90px); }
+            .tf-btn { font-size: 10px !important; padding: 6px 8px !important; min-width: 36px; }
+        }
+

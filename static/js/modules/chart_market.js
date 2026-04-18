@@ -118,11 +118,14 @@ export function loadChart(market, symbol, tf) {
     };
     var interval = intervalMap[tf] || '1d';
 
+    var limit = 100;
     var url;
     if (market === 'CRYPTO') {
-        url = window.API_BASE + '/klines?symbol=' + symbol + '&interval=' + interval;
+        url = window.API_BASE + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit;
+    } else if (market === 'TWSE') {
+        url = window.API_BASE + '/twse/klines?stock=' + symbol + '&interval=' + interval + '&limit=' + limit;
     } else {
-        url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval;
+        url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval + '&limit=' + limit;
     }
 
     fetch(url, { signal: _chartAbortController.signal })

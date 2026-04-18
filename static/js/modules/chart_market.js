@@ -207,87 +207,91 @@ function renderChart(market, klines) {
         return { time: normTime(d.time), value: vol, color: color };
     });
 
-    // Destroy old instance
-    var oldChartKey = market + 'Chart';
-    if (window[oldChartKey]) {
-        try { window[oldChartKey].remove(); } catch(e) {}
-        window[oldChartKey] = null;
-        window[market + 'CandleSeries'] = null;
-        window[market + 'VolChart'] = null;
-        window[market + 'VolSeries'] = null;
-    }
+    var chartKey = market + 'Chart';
+    var candleKey = market + 'CandleSeries';
+    var volKey = market + 'VolSeries';
+    var volChartKey = market + 'VolChart';
 
-    var chart = LightweightCharts.createChart(container, {
-        width: container.clientWidth, height: container.clientHeight || 480,
-        layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
-        grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
-        rightPriceScale: { borderColor: '#30363D' },
-        timeScale: { borderColor: '#30363D', timeVisible: true },
-    });
-
-    var candleSeries = chart.addCandlestickSeries({
-        upColor: '#3FB950', downColor: '#F85149',
-        borderUpColor: '#3FB950', borderDownColor: '#F85149',
-        wickUpColor: '#3FB950', wickDownColor: '#F85149',
-    });
-    candleSeries.setData(cdata);
-
-    var volChart = null, volSeries = null;
-    if (volContainer) {
-        volChart = LightweightCharts.createChart(volContainer, {
-            width: volContainer.clientWidth, height: volContainer.clientHeight || 150,
+    // Reuse chart instance if it exists; only create if not
+    if (!window[chartKey]) {
+        window[chartKey] = LightweightCharts.createChart(container, {
+            width: container.clientWidth, height: container.clientHeight || 480,
             layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
             grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
             rightPriceScale: { borderColor: '#30363D' },
             timeScale: { borderColor: '#30363D', timeVisible: true },
         });
-        volSeries = volChart.addHistogramSeries({ color: '#58A6FF', priceFormat: { type: 'volume' }, priceScaleId: '' });
-        volSeries.setData(vdata);
-        volChart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-
+        window[candleKey] = window[chartKey].addCandlestickSeries({
+            upColor: '#3FB950', downColor: '#F85149',
+            borderUpColor: '#3FB950', borderDownColor: '#F85149',
+            wickUpColor: '#3FB950', wickDownColor: '#F85149',
+        });
         // Sync via timestamps (reliable, works across different bar counts)
-        chart.timeScale().subscribeVisibleTimeRangeChange(function() {
-            var newRange = chart.timeScale().getVisibleLogicalRange();
-            if (newRange && volChart) {
-                volChart.timeScale().setVisibleLogicalRange(newRange);
-            }
+        window[chartKey].timeScale().subscribeVisibleTimeRangeChange(function() {
+            var newRange = window[chartKey].timeScale().getVisibleLogicalRange();
+            var vc = window[volChartKey];
+            if (newRange && vc) { vc.timeScale().setVisibleLogicalRange(newRange); }
         });
-        if (volChart) {
-            volChart.timeScale().subscribeVisibleTimeRangeChange(function() {
-                var newRange = volChart.timeScale().getVisibleLogicalRange();
-                if (newRange && chart) {
-                    chart.timeScale().setVisibleLogicalRange(newRange);
-                }
-            });
-        }
-
-        // Sync crosshair between main and vol chart
-        chart.subscribeCrosshairMove(function(param) {
-            if (!param || !param.time || !volSeries || !volChart) return;
-            var logical = param.seriesData.get(candleSeries);
-            if (logical !== undefined) {
-                volChart.setCrosshairPosition(logical.close, param.time, volSeries);
-            }
+        // Sync crosshair main → vol
+        window[chartKey].subscribeCrosshairMove(function(param) {
+            var cs = window[candleKey];
+            var vs = window[volKey];
+            var vc = window[volChartKey];
+            if (!param || !param.time || !vs || !vc || !cs) return;
+            var logical = param.seriesData.get(cs);
+            if (logical !== undefined) { vc.setCrosshairPosition(logical.close, param.time, vs); }
         });
-        if (volChart) {
-            volChart.subscribeCrosshairMove(function(param) {
-                if (!param || !param.time || !candleSeries || !chart) return;
-                var logical = param.seriesData.get(volSeries);
-                if (logical !== undefined) {
-                    chart.setCrosshairPosition(logical.value, param.time, candleSeries);
-                }
-            });
-        }
-
-        var key = 'resize_' + market;
-        if (window[key]) window.removeEventListener('resize', window[key]);
-        window[key] = function() {
-            if (chart) { var c = document.getElementById(chartId); if (c) chart.applyOptions({ width: c.clientWidth }); }
-            if (volChart) { var vc = document.getElementById(volId); if (vc) volChart.applyOptions({ width: vc.clientWidth }); }
-        };
-        window.addEventListener('resize', window[key]);
-        window[key](); // Fire immediately to sync sizes
     }
+
+    var chart = window[chartKey];
+    var candleSeries = window[candleKey];
+
+    candleSeries.setData(cdata);
+
+    var volChart = null, volSeries = null;
+    if (volContainer) {
+        if (!window[volChartKey]) {
+            window[volChartKey] = LightweightCharts.createChart(volContainer, {
+                width: volContainer.clientWidth, height: volContainer.clientHeight || 150,
+                layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
+                grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
+                rightPriceScale: { borderColor: '#30363D' },
+                timeScale: { borderColor: '#30363D', timeVisible: true },
+            });
+            window[volKey] = window[volChartKey].addHistogramSeries({ color: '#58A6FF', priceFormat: { type: 'volume' }, priceScaleId: '' });
+            window[volChartKey].priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+            // Sync vol → main time scale
+            window[volChartKey].timeScale().subscribeVisibleTimeRangeChange(function() {
+                var newRange = window[volChartKey].timeScale().getVisibleLogicalRange();
+                var mc = window[chartKey];
+                if (newRange && mc) { mc.timeScale().setVisibleLogicalRange(newRange); }
+            });
+            // Sync crosshair vol → main
+            window[volChartKey].subscribeCrosshairMove(function(param) {
+                var cs = window[candleKey];
+                var vs = window[volKey];
+                var mc = window[chartKey];
+                if (!param || !param.time || !vs || !mc || !cs) return;
+                var logical = param.seriesData.get(vs);
+                if (logical !== undefined) { mc.setCrosshairPosition(logical.value, param.time, cs); }
+            });
+        }
+        volChart = window[volChartKey];
+        volSeries = window[volKey];
+        volSeries.setData(vdata);
+    }
+
+    // Resize listener (always replace — keyed by market, safe to overwrite)
+    var key = 'resize_' + market;
+    if (window[key]) window.removeEventListener('resize', window[key]);
+    window[key] = function() {
+        var c = document.getElementById(chartId);
+        var vc = document.getElementById(volId);
+        if (window[chartKey] && c) window[chartKey].applyOptions({ width: c.clientWidth });
+        if (window[volChartKey] && vc) window[volChartKey].applyOptions({ width: vc.clientWidth });
+    };
+    window.addEventListener('resize', window[key]);
+    window[key]();
 
     chart.timeScale().fitContent();
 
@@ -298,10 +302,6 @@ function renderChart(market, klines) {
     }
 
     window._chartCandleData = cdata;
-    window[oldChartKey] = chart;
-    window[market + 'CandleSeries'] = candleSeries;
-    window[market + 'VolChart'] = volChart;
-    window[market + 'VolSeries'] = volSeries;
 }
 
 export function onSymbolChange(market, symbol) {

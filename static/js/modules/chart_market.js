@@ -1,5 +1,8 @@
 // chart_market.js — 通用市場圖表渲染
 
+// Keep track of in-flight request abort controller
+var _chartAbortController = null;
+
 // 通用標的載入
 export async function loadSymbols(market) {
     // 使用 querySelector 找 select（更寬鬆的匹配）
@@ -58,6 +61,12 @@ export async function loadSymbols(market) {
 }
 
 export function loadQuote(market, symbol) {
+    // Cancel any in-flight request
+    if (_chartAbortController) {
+        _chartAbortController.abort();
+    }
+    _chartAbortController = new AbortController();
+
     var url;
     if (market === 'CRYPTO') {
         url = window.API_BASE + '/crypto/quote?symbol=' + symbol;
@@ -66,7 +75,7 @@ export function loadQuote(market, symbol) {
     } else {
         url = window.API_BASE + '/us/quote/' + symbol;
     }
-    fetch(url)
+    fetch(url, { signal: _chartAbortController.signal })
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
             if (data.error) return;
@@ -84,10 +93,16 @@ export function loadQuote(market, symbol) {
             }
             if (volEl) volEl.textContent = 'Vol: ' + window.fmtNum(data.volume);
         })
-        .catch(function(e) { console.error('[chart_market] loadQuote error', market, e); });
+        .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] loadQuote error', market, e); });
 }
 
 export function loadChart(market, symbol, tf) {
+    // Cancel any in-flight request
+    if (_chartAbortController) {
+        _chartAbortController.abort();
+    }
+    _chartAbortController = new AbortController();
+
     var intervalMap = {
         'D': '1d', 'W': '1wk', 'M': '1mo',
         '4h': '4h', '1h': '1h', '15m': '15m', '5m': '5m'
@@ -101,7 +116,7 @@ export function loadChart(market, symbol, tf) {
         url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval;
     }
 
-    fetch(url)
+    fetch(url, { signal: _chartAbortController.signal })
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
             if (!data || !data.data || !data.data.length) {
@@ -110,7 +125,7 @@ export function loadChart(market, symbol, tf) {
             }
             renderChart(market, data.data);
         })
-        .catch(function(e) { console.error('[chart_market] Chart load error', market, symbol, url, e); });
+        .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] Chart load error', market, symbol, url, e); });
 }
 
 function renderChart(market, klines) {

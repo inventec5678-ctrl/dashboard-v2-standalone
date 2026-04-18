@@ -76,6 +76,7 @@ export function switchMarket(market) {
     if (market === 'TWSE') {
         document.getElementById('tab-twse').style.display = 'block';
         document.getElementById('tab-crypto').style.display = 'none';
+        document.getElementById('tab-us').style.display = 'none';
         document.getElementById('tab-strategy').style.display = 'none';
         window.loadQuote(market, window['current' + market + 'Stock']);
         window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
@@ -102,6 +103,7 @@ export function switchMarket(market) {
     } else if (market === 'CRYPTO') {
         document.getElementById('tab-crypto').style.display = 'block';
         document.getElementById('tab-twse').style.display = 'none';
+        document.getElementById('tab-us').style.display = 'none';
         document.getElementById('tab-strategy').style.display = 'none';
         document.querySelectorAll('#crypto-tf-buttons .tf-btn').forEach(function(b) {
             b.classList.toggle('active', b.dataset.tf === window.currentCRYPTOTF);

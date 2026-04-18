@@ -30,13 +30,26 @@ export function switchMarket(market) {
         }
     });
 
-    // K fix: wrap chart.remove() in try/catch
-    try { if (window.CRYPTOChart) { window.CRYPTOChart.remove(); window.CRYPTOChart = null; window.CRYPTOCandleSeries = null; } } catch(e) { console.warn('CRYPTOChart.remove error', e); }
-    try { if (window.CRYPTOVolChart) { window.CRYPTOVolChart.remove(); window.CRYPTOVolChart = null; window.CRYPTOVolSeries = null; } } catch(e) { console.warn('CRYPTOVolChart.remove error', e); }
-    try { if (window.TWSEChart) { window.TWSEChart.remove(); window.TWSEChart = null; window.TWSECandleSeries = null; } } catch(e) { console.warn('TWSEChart.remove error', e); }
-    try { if (window.TWSEVolChart) { window.TWSEVolChart.remove(); window.TWSEVolChart = null; window.TWSEVolSeries = null; } } catch(e) { console.warn('TWSEVolChart.remove error', e); }
-    try { if (window.USChart) { window.USChart.remove(); window.USChart = null; window.USCandleSeries = null; } } catch(e) { console.warn('USChart.remove error', e); }
-    try { if (window.USVolChart) { window.USVolChart.remove(); window.USVolChart = null; window.USVolSeries = null; } } catch(e) { console.warn('USVolChart.remove error', e); }
+    // K fix: wrap chart.remove() in try/catch + clear container innerHTML
+    var chartContainers = [
+        { chart: window.CRYPTOChart, containerId: 'chart-crypto', volContainerId: 'chart-crypto-vol' },
+        { chart: window.TWSEChart, containerId: 'chart-twse', volContainerId: 'chart-twse-vol' },
+        { chart: window.USChart, containerId: 'chart-us', volContainerId: 'chart-us-vol' }
+    ];
+    chartContainers.forEach(function(item) {
+        try {
+            if (item.chart) {
+                item.chart.remove();
+                var c = document.getElementById(item.containerId);
+                var v = document.getElementById(item.volContainerId);
+                if (c) c.innerHTML = '';
+                if (v) v.innerHTML = '';
+            }
+        } catch(e) { console.warn('chart.remove error', e); }
+    });
+    window.CRYPTOChart = window.CRYPTOCandleSeries = window.CRYPTOVolChart = window.CRYPTOVolSeries = null;
+    window.TWSEChart = window.TWSECandleSeries = window.TWSEVolChart = window.TWSEVolSeries = null;
+    window.USChart = window.USCandleSeries = window.USVolChart = window.USVolSeries = null;
 
     window.currentMarket = market;
 

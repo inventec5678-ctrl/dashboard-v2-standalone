@@ -1,7 +1,8 @@
 // chart_market.js — 通用市場圖表渲染
 
-// Keep track of in-flight request abort controller
+// Keep track of in-flight request abort controllers
 var _chartAbortController = null;
+var _quoteAbortController = null;
 
 // 通用標的載入
 export async function loadSymbols(market) {
@@ -62,10 +63,10 @@ export async function loadSymbols(market) {
 
 export function loadQuote(market, symbol) {
     // Cancel any in-flight request
-    if (_chartAbortController) {
-        _chartAbortController.abort();
+    if (_quoteAbortController) {
+        _quoteAbortController.abort();
     }
-    _chartAbortController = new AbortController();
+    _quoteAbortController = new AbortController();
 
     var url;
     if (market === 'CRYPTO') {
@@ -75,7 +76,7 @@ export function loadQuote(market, symbol) {
     } else {
         url = window.API_BASE + '/us/quote/' + symbol;
     }
-    fetch(url, { signal: _chartAbortController.signal })
+    fetch(url, { signal: _quoteAbortController.signal })
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
             if (data.error) return;

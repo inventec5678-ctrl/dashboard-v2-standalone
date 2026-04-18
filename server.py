@@ -91,6 +91,13 @@ async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h")
         except:
             pass
 
+    # Binance futures does not support monthly K-lines (1mo) - return empty instead of falling back
+    if interval == "1mo":
+        return JSONResponse(
+            content={"data": [], "error": "monthly data not available for this symbol"},
+            status_code=200
+        )
+
     # Fall back to Binance
     url = "https://api.binance.com/api/v3/klines"
     binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()

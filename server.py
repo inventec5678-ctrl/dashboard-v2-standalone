@@ -275,15 +275,31 @@ async def twse_daily(stock: str = Query(""), months: int = 6):
 
 @app.get("/api/twse/klines")
 async def twse_klines(stock: str = Query(""), interval: str = Query(""), limit: int = 300):
-    """Serve TWSE daily klines from local historical data files"""
-    import os, json
+    """Serve TWSE klines: 1d from JSON, 1wk/1mo from parquet"""
+    import pandas as pd
+    interval_key_map = {"1d": "1d", "1wk": "1w", "1mo": "1mo", "D": "1d", "W": "1w", "M": "1mo"}
+    interval_key = interval_key_map.get(interval, "1d")
+
+    # Try parquet first (for 1wk/1mo, or if 1d parquet exists)
+    parquet_path = os.path.join(DATA_DIR, "ohlcvutc", "twse", f"{stock}_{interval_key}.parquet")
+    if os.path.exists(parquet_path):
+        df = pd.read_parquet(parquet_path)
+        if limit:
+            df = df.tail(limit)
+        data = [
+            {"time": int(pd.Timestamp(t).timestamp()), "open": float(r["open"]), "high": float(r["high"]),
+             "low": float(r["low"]), "close": float(r["close"]), "volume": float(r["volume"])}
+            for t, r in df.iterrows()
+        ]
+        return {"data": data}
+
+    # Fallback to JSON for 1d
     data_dir = "/Users/changrunlin/.openclaw/workspace/crypto-agent-platform/data/twse_daily"
     filepath = os.path.join(data_dir, f"{stock}.json")
     if not os.path.exists(filepath):
         return JSONResponse(content={"error": f"No data for {stock}"}, status_code=404)
     with open(filepath) as f:
         raw_data = json.load(f)
-    # limit: take most recent N records
     data = raw_data[-limit:]
     return {"data": data}
 

@@ -116,7 +116,7 @@ export function doRankSort() {
         }
         return asc ? (va || 0) - (vb || 0) : (vb || 0) - (va || 0);
     });
-    var tbody = document.getElementById('rank-tbody');
+    var tbody = document.getElementById('strategy-rank-tbody');
     if (!tbody) return;
     if (!sorted.length) {
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text-muted)">暫無策略</td></tr>';

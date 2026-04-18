@@ -33,9 +33,14 @@ export async function loadSymbols(market) {
     try {
         var resp = await fetch(url);
         var data = await resp.json();
-        if (!data.symbols) { console.warn('no symbols in data'); return; }
+        // Handle both flat {symbols: [...]} and nested {data: {symbols: [...]}} formats
+        var symData = data;
+        if (!symData.symbols && data.data && data.data.symbols) {
+            symData = data.data;
+        }
+        if (!symData.symbols) { console.warn('no symbols in data'); return; }
         select.innerHTML = '';
-        data.symbols.forEach(function(s) {
+        symData.symbols.forEach(function(s) {
             var opt = document.createElement('option');
             if (market === 'TWSE') {
                 opt.value = s.code;

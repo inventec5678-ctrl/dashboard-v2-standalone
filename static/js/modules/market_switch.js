@@ -2,36 +2,22 @@
 
 export function switchMarket(market) {
     // 切換前先銷毀舊 chart 實例，防止記憶體 leak
-    if (window.CRYPTOChart) {
-        window.CRYPTOChart.remove();
-        window.CRYPTOChart = null;
-        window.CRYPTOCandleSeries = null;
+    // E fix: removed _highlightCryptoButton('BTCUSDT') from CRYPTO branch
+
+    // J fix: cleanup resize listeners before removing charts
+    var resizeKey = 'resize_' + market;
+    if (window[resizeKey]) {
+        window.removeEventListener('resize', window[resizeKey]);
+        window[resizeKey] = null;
     }
-    if (window.CRYPTOVolChart) {
-        window.CRYPTOVolChart.remove();
-        window.CRYPTOVolChart = null;
-        window.CRYPTOVolSeries = null;
-    }
-    if (window.TWSEChart) {
-        window.TWSEChart.remove();
-        window.TWSEChart = null;
-        window.TWSECandleSeries = null;
-    }
-    if (window.TWSEVolChart) {
-        window.TWSEVolChart.remove();
-        window.TWSEVolChart = null;
-        window.TWSEVolSeries = null;
-    }
-    if (window.USChart) {
-        window.USChart.remove();
-        window.USChart = null;
-        window.USCandleSeries = null;
-    }
-    if (window.USVolChart) {
-        window.USVolChart.remove();
-        window.USVolChart = null;
-        window.USVolSeries = null;
-    }
+
+    // K fix: wrap chart.remove() in try/catch
+    try { if (window.CRYPTOChart) { window.CRYPTOChart.remove(); window.CRYPTOChart = null; window.CRYPTOCandleSeries = null; } } catch(e) { console.warn('CRYPTOChart.remove error', e); }
+    try { if (window.CRYPTOVolChart) { window.CRYPTOVolChart.remove(); window.CRYPTOVolChart = null; window.CRYPTOVolSeries = null; } } catch(e) { console.warn('CRYPTOVolChart.remove error', e); }
+    try { if (window.TWSEChart) { window.TWSEChart.remove(); window.TWSEChart = null; window.TWSECandleSeries = null; } } catch(e) { console.warn('TWSEChart.remove error', e); }
+    try { if (window.TWSEVolChart) { window.TWSEVolChart.remove(); window.TWSEVolChart = null; window.TWSEVolSeries = null; } } catch(e) { console.warn('TWSEVolChart.remove error', e); }
+    try { if (window.USChart) { window.USChart.remove(); window.USChart = null; window.USCandleSeries = null; } } catch(e) { console.warn('USChart.remove error', e); }
+    try { if (window.USVolChart) { window.USVolChart.remove(); window.USVolChart = null; window.USVolSeries = null; } } catch(e) { console.warn('USVolChart.remove error', e); }
 
     window.currentMarket = market;
 
@@ -90,7 +76,6 @@ export function switchMarket(market) {
         });
         window.loadQuote(market, window['current' + market + 'Stock']);
         window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
-        window._highlightCryptoButton('BTCUSDT');
         // Reload crypto strategies when switching back
         window.loadStrategies();
 

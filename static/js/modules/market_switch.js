@@ -86,7 +86,7 @@ export function switchMarket(market) {
         document.getElementById('tab-twse').style.display = 'none';
         document.getElementById('tab-strategy').style.display = 'none';
         document.querySelectorAll('#crypto-tf-buttons .tf-btn').forEach(function(b) {
-            b.classList.toggle('active', b.dataset.tf === window.currentTF);
+            b.classList.toggle('active', b.dataset.tf === window.currentCRYPTOTF);
         });
         window.loadQuote(market, window['current' + market + 'Stock']);
         window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');

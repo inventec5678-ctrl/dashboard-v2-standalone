@@ -67,6 +67,7 @@ export function fetchTWSEAnomalies() {
 export async function fetchUSKlines(symbol, interval, limit = 300) {
     // GET /api/us/klines/{symbol}?interval=1d&limit=300
     const resp = await fetch(`${window.API_BASE}/us/klines/${symbol}?interval=${interval}&limit=${limit}`);
+    if (!resp.ok) return Promise.reject(resp.status);
     return resp.json();
 }
 

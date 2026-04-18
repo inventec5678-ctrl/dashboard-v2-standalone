@@ -67,7 +67,7 @@ class DataQualityChecker:
         # For 1mo: check for gaps > 45 days
         
         tf_gaps = {
-            '15m': 20, '1h': 180, '4h': 360, '1d': 5760, '1w': 14400, '1mo': 43200
+            '15m': 20, '1h': 180, '4h': 360, '1d': 5760, '1w': 14400, '1mo': 50000
         }
 
         # Determine timeframe from filepath

@@ -25,9 +25,10 @@ TOP50_TWSE_CODES = list(TOP50_TWSE.keys())
 DATA_DIR = Path(__file__).parent / "data"
 
 # CORS
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

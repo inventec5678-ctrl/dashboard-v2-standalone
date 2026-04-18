@@ -65,7 +65,6 @@ export function switchMarket(market) {
         }
     }
     document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
-    document.querySelectorAll('.tab-btn').forEach(function(el) { el.style.background = ''; el.style.color = ''; });
     var targetBtn = document.getElementById('tab-btn-' + market.toLowerCase());
     if (targetBtn) targetBtn.classList.add('active');
 

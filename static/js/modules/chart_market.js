@@ -62,6 +62,10 @@ export async function loadSymbols(market) {
 }
 
 export function loadQuote(market, symbol) {
+    if (!symbol || symbol === '') {
+        console.warn('[chart_market] loadQuote: empty symbol');
+        return;
+    }
     // Cancel any in-flight request
     if (_quoteAbortController) {
         _quoteAbortController.abort();
@@ -98,6 +102,10 @@ export function loadQuote(market, symbol) {
 }
 
 export function loadChart(market, symbol, tf) {
+    if (!symbol || symbol === '') {
+        console.warn('[chart_market] loadChart: empty symbol');
+        return;
+    }
     // Cancel any in-flight request
     if (_chartAbortController) {
         _chartAbortController.abort();

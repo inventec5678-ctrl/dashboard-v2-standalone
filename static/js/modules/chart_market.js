@@ -4,6 +4,31 @@
 var _chartAbortController = null;
 var _quoteAbortController = null;
 
+// ====== In-Memory Cache ======
+const _chartCache = new Map(); // key: `${market}|${symbol}|${interval}`, value: { bars: [...], ts: number }
+
+function _getCacheKey(market, symbol, interval) {
+    return `${market}|${symbol}|${interval}`;
+}
+
+function _setCache(market, symbol, interval, bars) {
+    _chartCache.set(_getCacheKey(market, symbol, interval), { bars, ts: Date.now() });
+}
+
+function _getCache(market, symbol, interval) {
+    return _chartCache.get(_getCacheKey(market, symbol, interval));
+}
+
+function _isCacheValid(market, symbol, interval, maxAgeMs = 60000) {
+    const entry = _getCache(market, symbol, interval);
+    if (!entry) return false;
+    return (Date.now() - entry.ts) < maxAgeMs;
+}
+
+function _invalidateCache(market, symbol, interval) {
+    _chartCache.delete(_getCacheKey(market, symbol, interval));
+}
+
 // 通用標的載入
 export async function loadSymbols(market) {
     // 使用 querySelector 找 select（更寬鬆的匹配）

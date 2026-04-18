@@ -64,14 +64,10 @@ export function switchMarket(market) {
             titleEl.textContent = '📈 加密貨幣量化交易平台';
         }
     }
-    document.getElementById('tab-btn-crypto').style.background = market === 'CRYPTO' ? '#333' : 'transparent';
-    document.getElementById('tab-btn-crypto').style.color = market === 'CRYPTO' ? '#fff' : 'var(--text-muted)';
-    document.getElementById('tab-btn-twse').style.background = market === 'TWSE' ? '#333' : 'transparent';
-    document.getElementById('tab-btn-twse').style.color = market === 'TWSE' ? '#fff' : 'var(--text-muted)';
-    document.getElementById('tab-btn-strategy').style.background = market === 'STRATEGY' ? '#333' : 'transparent';
-    document.getElementById('tab-btn-strategy').style.color = market === 'STRATEGY' ? '#fff' : 'var(--text-muted)';
-    document.getElementById('tab-btn-us').style.background = market === 'US' ? '#333' : 'transparent';
-    document.getElementById('tab-btn-us').style.color = market === 'US' ? '#fff' : 'var(--text-muted)';
+    document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(el) { el.style.background = ''; el.style.color = ''; });
+    var targetBtn = document.getElementById('tab-btn-' + market.toLowerCase());
+    if (targetBtn) targetBtn.classList.add('active');
 
     if (market === 'TWSE') {
         document.getElementById('tab-twse').style.display = 'block';
@@ -130,10 +126,8 @@ export function switchMarket(market) {
         if (titleEl) titleEl.textContent = '🇺🇸 美股量化交易平台';
         window.loadQuote(market, window['current' + market + 'Stock']);
         window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
-        setTimeout(function() {
-            if (window.USChart) window.USChart.resize();
-            if (window.USVolChart) window.USVolChart.resize();
-        }, 50);
+        if (window.USChart) window.USChart.resize();
+        if (window.USVolChart) window.USVolChart.resize();
         window.renderRankingTable([]);
         var stratConsBody = document.getElementById('strategy-consensus-body');
         if (stratConsBody) stratConsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">美股模式，暫無策略資料</div>';

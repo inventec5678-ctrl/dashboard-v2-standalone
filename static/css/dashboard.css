@@ -297,9 +297,9 @@
         }
         .tf-btn.active, .tf-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--accent-blue); }
         #chart-crypto, .chart-main,
-        #chart-twse, #chart-us { height: 480px; flex-shrink: 0; }
+        #chart-twse, #chart-us { height: clamp(280px, 55vw, 480px); flex-shrink: 0; }
         #chart-crypto-vol, .chart-vol,
-        #chart-twse-vol, #chart-us-vol { height: 150px; flex-shrink: 0; border-top: 1px solid var(--border-color); }
+        #chart-twse-vol, #chart-us-vol { height: clamp(80px, 18vw, 150px); flex-shrink: 0; border-top: 1px solid var(--border-color); }
 
         /* ── Unified sym-bar ── */
         .sym-bar { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; }
@@ -345,6 +345,10 @@
         .modal-chart-btn { font-size: 10px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
         .modal-chart-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
         .modal-chart-btn.active { background: rgba(88,166,255,0.15); color: var(--accent-blue); border-color: var(--accent-blue); }
+
+        /* ── Tab Buttons ── */
+        .tab-btn { background: transparent; color: var(--text-muted); transition: all 0.15s; }
+        .tab-btn.active { background: rgba(51,51,51,0.8); color: #fff; border-bottom: 2px solid var(--accent-blue); }
 
         /* ── Responsive ── */
         @media (max-width: 768px) {

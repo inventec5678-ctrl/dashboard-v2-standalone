@@ -145,3 +145,97 @@ Example：
 - `AAPL__1mo.parquet`
 
 > ⚠️ 目前資料庫中仍有舊命名格式 `{SYMBOL}_{TIMEFRAME}.parquet`（單底線），server.py 已相容兩種格式。
+
+---
+
+## 每日維護
+
+### 手動更新
+
+若需立即更新最新資料，執行對應的 ingestion script：
+
+```bash
+# Crypto — 每日 03:00 UTC+8（建議 cron 自動化）
+python3 scripts/ingest_crypto.py
+
+# TWSE — 每日 04:00 UTC+8（TWSE 13:30 收盤後）
+python3 scripts/ingest_twse.py
+
+# US — 每日 04:30 UTC+8（美股 16:00 收盤後）
+python3 scripts/ingest_us.py
+```
+
+支援 `--full`（全量回補）或 `--date YYYY-MM-DD`（指定日期）：
+
+```bash
+# 全量回補（2020-01 起）
+python3 scripts/ingest_crypto.py --full
+
+# 指定日期
+python3 scripts/ingest_twse.py --date 2026-04-15
+python3 scripts/ingest_us.py --date 2026-04-15
+```
+
+### 自動 Cron 設定
+
+在 macOS/Linux 上編輯 crontab：
+
+```bash
+crontab -e
+```
+
+```cron
+# Crypto — 每日 03:00 UTC+8
+0 3 * * * cd /Users/changrunlin/.openclaw/workspace-luka/dashboard-v2-standalone && python3 scripts/ingest_crypto.py >> logs/ingest_crypto.log 2>&1
+
+# TWSE — 每日 04:00 UTC+8（TWSE 13:30 收盤後）
+0 4 * * * cd /Users/changrunlin/.openclaw/workspace-luka/dashboard-v2-standalone && python3 scripts/ingest_twse.py >> logs/ingest_twse.log 2>&1
+
+# US — 每日 04:30 UTC+8（美股 16:00 收盤後）
+30 4 * * * cd /Users/changrunlin/.openclaw/workspace-luka/dashboard-v2-standalone && python3 scripts/ingest_us.py >> logs/ingest_us.log 2>&1
+```
+
+> **確保 logs/ 目錄存在：** `mkdir -p /Users/changrunlin/.openclaw/workspace-luka/dashboard-v2-standalone/logs`
+
+### 資料品質檢測
+
+```bash
+# 檢查所有市場
+python3 scripts/data_quality_check.py --market all
+
+# 檢查並自動修復發現的問題
+python3 scripts/data_quality_check.py --market all --fix
+
+# 只檢查特定市場
+python3 scripts/data_quality_check.py --market crypto
+python3 scripts/data_quality_check.py --market twse
+python3 scripts/data_quality_check.py --market us
+```
+
+### 常見問題
+
+**Q: K線不顯示怎麼辦？**
+A: 先檢查 API 是否正常：
+```bash
+curl "http://localhost:5006/api/crypto/klines?symbol=BTCUSDT&interval=1d&limit=2"
+curl "http://localhost:5006/api/twse/klines?stock=2330&interval=1d&limit=2"
+curl "http://localhost:5006/api/us/klines/AAPL?interval=1d&limit=2"
+```
+若 API 回傳空陣列或錯誤，表示 parquet 資料尚未生成，需執行對應的 ingestion script。
+
+**Q: 資料落後怎麼辦？**
+A: 執行當日 ingestion script 更新資料：
+```bash
+python3 scripts/ingest_crypto.py
+python3 scripts/ingest_twse.py
+python3 scripts/ingest_us.py
+```
+
+**Q: Crypto 1mo 沒有資料？**
+A: Binance Futures API 不支援月線，server.py 對 `1mo` 會回傳空陣列。建議使用 `1d` 資料在前端自己做月線聚合。
+
+**Q: TWSE 即時行情（intraday）無效？**
+A: TWSE `MI_5MINS` API 只在盤中（09:00–13:30）有效，盤後與週末無資料。
+
+**Q: US 資料延遲？**
+A: yfinance 延遲 15~20 分鐘，屬正常現象。若需真正即時，可評估 Alpaca API 取代。

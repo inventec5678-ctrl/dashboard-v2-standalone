@@ -15,6 +15,59 @@
 
 ---
 
+## 🚀 快速接入
+
+### 1. 啟動 Server
+
+```bash
+cd /Users/changrunlin/.openclaw/workspace-luka/dashboard-v2-standalone
+uvicorn server:app --host 0.0.0.0 --port 5006
+```
+
+### 2. 開啟 Dashboard
+
+```
+http://localhost:5006/dashboard_v2
+```
+
+### 3. 替換 / 新增 Symbol
+
+編輯 `static/js/modules/chart_market.js` 中的以下常數：
+
+```javascript
+const TOP20_CRYPTO = ["BTCUSDT", "ETHUSDT", ...];   // Crypto symbols
+const TWSE_SYMBOLS = ["2330", "0050", ...];         // TWSE 股票代碼
+const US_SYMBOLS   = ["AAPL", "MSFT", ...];          // US stock tickers
+```
+
+> TWSE 代碼可在 [`data/symbols.py`](data/symbols.py) 找到完整清單。
+
+### 4. 確認 timeframe 支援
+
+`server.py` 的 `interval_key_map` 已支援以下 timeframe：
+
+| 輸入 | Parquet key | 說明 |
+|------|-------------|------|
+| `1d`, `D` | `1d` | 日線 ✅ |
+| `1h` | `1h` | 小時線 ✅ |
+| `4h` | `4h` | 4小時線 ✅ |
+| `1wk`, `W` | `1wk` | 週線 ✅ |
+| `1mo`, `M` | `1mo` | 月線 ⚠️（Binance 不支援） |
+| `15m` | `15m` | 15分線（需先下載歷史） |
+
+若需新增 timeframe，需同步更新 `server.py` 的 `interval_key_map` 並執行對應的 ingestion script。
+
+### 5. 自訂資料路徑
+
+```python
+# server.py 頂部，預設值：
+DATA_DIR = "/Users/changrunlin/.openclaw/workspace/crypto-agent-platform/data"
+```
+
+直接修改 `DATA_DIR` 或透過環境變數覆寫即可使用不同資料目錄。
+
+---
+
 ## 快速開始
 
 ### 1. 安裝依賴

@@ -60,14 +60,14 @@ class DataQualityChecker:
             return issues
 
         # For 15m: check for gaps > 20min (1+ bar missing)
-        # For 1h: check for gaps > 90min
-        # For 4h: check for gaps > 5h
-        # For 1d: check for gaps > 27h
-        # For 1w: check for gaps > 8 days
-        # For 1mo: check for gaps > 32 days
-
+        # For 1h: check for gaps > 3h (allow for after-hours)
+        # For 4h: check for gaps > 6h
+        # For 1d: check for gaps > 4 days (allow for Fri-Mon weekends + holidays)
+        # For 1w: check for gaps > 10 days (allow for holiday weeks)
+        # For 1mo: check for gaps > 45 days
+        
         tf_gaps = {
-            '15m': 20, '1h': 90, '4h': 300, '1d': 1620, '1w': 11520, '1mo': 43200
+            '15m': 20, '1h': 180, '4h': 360, '1d': 5760, '1w': 14400, '1mo': 43200
         }
 
         # Determine timeframe from filepath

@@ -121,7 +121,7 @@ export function loadChart(market, symbol, tf) {
     var limit = 100;
     var url;
     if (market === 'CRYPTO') {
-        url = window.API_BASE + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit;
+        url = window.API_BASE + '/crypto/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit;
     } else if (market === 'TWSE') {
         url = window.API_BASE + '/twse/klines?stock=' + symbol + '&interval=' + interval + '&limit=' + limit;
     } else {
@@ -130,12 +130,14 @@ export function loadChart(market, symbol, tf) {
 
     fetch(url, { signal: _chartAbortController.signal })
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
-        .then(function(data) {
-            if (!data || !data.data || !data.data.length) {
-                console.warn('[chart_market] No data for', market, symbol);
+        .then(function(raw) {
+            // Normalize: TWSE/US={symbol,interval,data:[...]}, some={data:[]}
+            var klines = raw.data && Array.isArray(raw.data) ? raw.data : (raw.data && raw.data.data ? raw.data.data : raw.data);
+            if (!klines || !klines.length) {
+                console.warn('[chart_market] No data for', market, symbol, 'url:', url);
                 return;
             }
-            renderChart(market, data.data);
+            renderChart(market, klines);
         })
         .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] Chart load error', market, symbol, url, e); });
 }

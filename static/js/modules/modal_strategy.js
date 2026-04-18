@@ -208,8 +208,8 @@ export function clearPriceLines() {
     if (!window._activePriceLines) window._activePriceLines = {};
     for (var k in window._activePriceLines) {
         if (window._activePriceLines[k]) {
-            if (window.chart && window.chart.removeLineMarker) {
-                window.chart.removeLineMarker(window._activePriceLines[k]);
+            if (window[window.currentMarket + 'Chart'] && window[window.currentMarket + 'Chart'].removeLineMarker) {
+                window[window.currentMarket + 'Chart'].removeLineMarker(window._activePriceLines[k]);
             }
         }
     }
@@ -219,13 +219,13 @@ export function clearPriceLines() {
 export function togglePriceLine(type) {
     var s = window._activeModalStrategy;
     if (!s) return;
-    if (!window.chart) return;
+    if (!window[window.currentMarket + 'Chart']) return;
     if (!window._activePriceLines) window._activePriceLines = {};
 
     // Remove existing line of this type
     if (window._activePriceLines[type]) {
-        if (window.chart.removeLineMarker) {
-            window.chart.removeLineMarker(window._activePriceLines[type]);
+        if (window[window.currentMarket + 'Chart'].removeLineMarker) {
+            window[window.currentMarket + 'Chart'].removeLineMarker(window._activePriceLines[type]);
         }
         window._activePriceLines[type] = null;
         return;
@@ -240,12 +240,12 @@ export function togglePriceLine(type) {
     else if (type === 'ma') { price = null; }
     else if (type === 'rsi') { price = null; }
 
-    if (price != null && window.candleSeries) {
-        var lastBar = window.candleSeries.data ? window.candleSeries.data().slice(-1)[0] : null;
+    if (price != null && window[window.currentMarket + 'CandleSeries']) {
+        var lastBar = window[window.currentMarket + 'CandleSeries'].data ? window[window.currentMarket + 'CandleSeries'].data().slice(-1)[0] : null;
         if (lastBar) {
             // Use lightweight-charts built-in price line via createPriceLine
             try {
-                var line = window.candleSeries.createPriceLine({
+                var line = window[window.currentMarket + 'CandleSeries'].createPriceLine({
                     price: price,
                     color: color,
                     lineWidth: 1,

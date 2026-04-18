@@ -80,28 +80,41 @@ async def get_crypto_list():
 
 @app.get("/api/crypto/klines")
 async def get_crypto_klines(symbol: str = Query(""), interval: str = Query("4h"), limit: int = 300):
-    """Get klines for a specific crypto - try local cache first, then Binance"""
-    # Try local cache first (from TWSE download)
-    cache_file = os.path.join(DATA_DIR, f"crypto_daily/{symbol.upper()}.json")
-    if os.path.exists(cache_file):
-        try:
-            with open(cache_file, "r") as f:
-                data = json.load(f)
-            return {"symbol": symbol.upper(), "interval": interval, "data": data[:limit]}
-        except:
-            pass
+    """Get klines for a specific crypto - try local parquet first, then Binance"""
+    import pandas as pd
 
-    # Binance futures does not support monthly K-lines (1mo) - return empty instead of falling back
-    if interval == "1mo":
+    # Try local parquet first
+    interval_key_map = {"1d": "1d", "1wk": "1w", "1mo": "1mo", "D": "1d", "W": "1w", "M": "1mo"}
+    interval_key = interval_key_map.get(interval, "1d")  # parquet key
+    parquet_path = os.path.join(DATA_DIR, "ohlcvutc", "crypto", f"{symbol.upper()}_{interval_key}.parquet")
+
+    if os.path.exists(parquet_path):
+        try:
+            df = pd.read_parquet(parquet_path)
+            if limit:
+                df = df.tail(limit)
+            data = [
+                {"time": int(pd.Timestamp(t).timestamp()), "open": float(r["open"]), "high": float(r["high"]),
+                 "low": float(r["low"]), "close": float(r["close"]), "volume": float(r["volume"])}
+                for t, r in df.iterrows()
+            ]
+            return {"symbol": symbol.upper(), "interval": interval, "data": data}
+        except Exception as e:
+            pass  # Fall through to Binance
+
+    # Binance fallback (not used for 1mo - Binance doesn't support monthly K-lines)
+    if interval == "1mo" or interval_key == "1mo":
         return JSONResponse(
-            content={"data": [], "error": "monthly data not available for this symbol"},
+            content={"data": [], "error": "monthly data not available"},
             status_code=200
         )
 
-    # Fall back to Binance
+    # Fall back to Binance for non-monthly intervals
     url = "https://api.binance.com/api/v3/klines"
     binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
-    params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
+    binance_interval_map = {"1d": "1d", "1wk": "1w", "1mo": "1M", "D": "1d", "W": "1w", "M": "1M"}
+    binance_interval = binance_interval_map.get(interval, interval)
+    params = {"symbol": binance_symbol, "interval": binance_interval, "limit": limit}
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url, params=params)
         raw = r.json()

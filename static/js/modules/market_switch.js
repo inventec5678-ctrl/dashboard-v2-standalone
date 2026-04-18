@@ -4,12 +4,31 @@ export function switchMarket(market) {
     // 切換前先銷毀舊 chart 實例，防止記憶體 leak
     // E fix: removed _highlightCryptoButton('BTCUSDT') from CRYPTO branch
 
-    // J fix: cleanup resize listeners before removing charts
-    var resizeKey = 'resize_' + market;
-    if (window[resizeKey]) {
-        window.removeEventListener('resize', window[resizeKey]);
-        window[resizeKey] = null;
-    }
+    // TODO-007 fix: clear all market price displays before loading new data
+    var markets = ['crypto', 'twse', 'us'];
+    markets.forEach(function(m) {
+        var pe = document.getElementById('price-' + m);
+        var ce = document.getElementById('change-' + m);
+        var ve = document.getElementById('volume-' + m);
+        if (pe) { pe.textContent = '—'; pe.className = 'chart-price'; }
+        if (ce) { ce.textContent = '—'; ce.className = 'change-display'; }
+        if (ve) ve.textContent = '—';
+    });
+
+    // L fix: cleanup overlay series before destroying charts
+    if (window._priceLines) { window._priceLines.forEach(function(line) { try { if (line) line.remove(); } catch(e) {} }); window._priceLines = []; }
+    if (window._maLineSeries) { try { window._maLineSeries.remove(); } catch(e) {} window._maLineSeries = null; }
+    if (window._rsiLineSeries) { try { window._rsiLineSeries.remove(); } catch(e) {} window._rsiLineSeries = null; }
+
+    // L fix: also cleanup resize listeners for ALL markets
+    // When switching market, destroy all charts and their resize listeners
+    ['CRYPTO', 'TWSE', 'US'].forEach(function(m) {
+        var rk = 'resize_' + m;
+        if (window[rk]) {
+            window.removeEventListener('resize', window[rk]);
+            window[rk] = null;
+        }
+    });
 
     // K fix: wrap chart.remove() in try/catch
     try { if (window.CRYPTOChart) { window.CRYPTOChart.remove(); window.CRYPTOChart = null; window.CRYPTOCandleSeries = null; } } catch(e) { console.warn('CRYPTOChart.remove error', e); }

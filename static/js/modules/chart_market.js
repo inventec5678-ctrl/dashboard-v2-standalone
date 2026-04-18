@@ -118,7 +118,10 @@ export function loadChart(market, symbol, tf) {
     };
     var interval = intervalMap[tf] || '1d';
 
-    var limit = 100;
+    var limitMap = {
+        '15m': 300, '1h': 300, '4h': 300, 'D': 365, 'W': 260, 'M': 120
+    };
+    var limit = limitMap[tf] || 300;
     var url;
     if (market === 'CRYPTO') {
         url = window.API_BASE + '/crypto/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit;

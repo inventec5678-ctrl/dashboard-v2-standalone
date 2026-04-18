@@ -2,3 +2,7 @@ fastapi
 uvicorn
 httpx
 pandas
+pyarrow
+requests
+yfinance
+ccxt

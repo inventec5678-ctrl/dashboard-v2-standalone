@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query, Request
+from pathlib import Path
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -21,7 +22,7 @@ from data.symbols import TOP20_CRYPTO, TOP50_TWSE
 TOP20_CRYPTO_CODES = [s.replace("USDT", "") for s in TOP20_CRYPTO]
 TOP50_TWSE_CODES = list(TOP50_TWSE.keys())
 
-DATA_DIR = "/Users/changrunlin/.openclaw/workspace/crypto-agent-platform/data"
+DATA_DIR = Path(__file__).parent / "data"
 
 # CORS
 app.add_middleware(

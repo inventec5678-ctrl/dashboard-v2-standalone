@@ -248,6 +248,7 @@ function renderChart(market, klines) {
         if (priceEl) { priceEl.textContent = last.close.toLocaleString(); priceEl.className = 'chart-price'; }
     }
 
+    window._chartCandleData = cdata;
     window[oldChartKey] = chart;
     window[market + 'CandleSeries'] = candleSeries;
     window[market + 'VolChart'] = volChart;

@@ -48,6 +48,17 @@ function startCountdown() {
         var remaining2 = Math.max(0, Math.ceil((UPDATE_INTERVAL_MS - elapsed2) / 1000));
         var el2 = document.getElementById('countdown-val');
         if (el2) el2.textContent = remaining2;
+
+        // Countdown reached 0 — auto-refresh quote and chart
+        if (remaining2 === 0) {
+            var market = window.currentMarket || 'CRYPTO';
+            var symbol = window['current' + market + 'Stock'];
+            var tf = window['current' + market + 'TF'] || 'D';
+            console.log('[countdown] 0s — auto-refreshing', market, symbol);
+            if (window.loadQuote) window.loadQuote(market, symbol);
+            if (window.loadChart) window.loadChart(market, symbol, tf);
+            // startCountdown will be called by loadQuote on success to reset the timer
+        }
     }, 1000);
 }
 window.startCountdown = startCountdown;

@@ -35,13 +35,16 @@ var UPDATE_INTERVAL_MS = 60000;
 var _countdownTimer = null;
 
 function startCountdown() {
-    var elapsed = Date.now() - (window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.getTime() : Date.now());
+    var lastTs = window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.getTime() : Date.now();
+    var elapsed = Date.now() - lastTs;
     var remaining = Math.max(0, Math.ceil((UPDATE_INTERVAL_MS - elapsed) / 1000));
+    console.log('[countdown] startCountdown, lastUpdate=' + (window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.toISOString() : 'null') + ', remaining=' + remaining + 's');
     var el = document.getElementById('countdown-val');
     if (el) el.textContent = remaining;
     if (_countdownTimer) clearInterval(_countdownTimer);
     _countdownTimer = setInterval(function() {
-        var elapsed2 = Date.now() - (window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.getTime() : Date.now());
+        var lastTs2 = window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.getTime() : Date.now();
+        var elapsed2 = Date.now() - lastTs2;
         var remaining2 = Math.max(0, Math.ceil((UPDATE_INTERVAL_MS - elapsed2) / 1000));
         var el2 = document.getElementById('countdown-val');
         if (el2) el2.textContent = remaining2;

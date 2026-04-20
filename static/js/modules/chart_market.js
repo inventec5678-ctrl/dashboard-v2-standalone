@@ -260,12 +260,10 @@ function renderChart(market, klines) {
         var tzOffsetMap = { 'TWSE': 8, 'US': -5, 'CRYPTO': 0 };
         var tzOffset = tzOffsetMap[market] || 0;
         window[chartKey].timeScale().applyOptions({
-            tickMarkFormatter: {
-                time: function(time) {
-                    var d = new Date(time * 1000);
-                    d.setHours(d.getHours() + tzOffset);
-                    return d.toISOString().replace('T', ' ').substring(0, 16);
-                }
+            tickMarkFormatter: function(time, tickMarkType, locale) {
+                var d = new Date(time * 1000);
+                d.setHours(d.getHours() + tzOffset);
+                return d.toISOString().replace('T', ' ').substring(0, 16);
             }
         });
         window[candleKey] = window[chartKey].addCandlestickSeries({

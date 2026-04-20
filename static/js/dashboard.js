@@ -56,9 +56,9 @@ function startCountdown() {
             var tf = window['current' + market + 'TF'] || 'D';
             // Invalidate cache so loadChart fetches fresh data
             if (window._invalidateCache) {
-                window._invalidateCache(market, symbol, tf);
+                window._invalidateCache(market, symbol, '*');
             }
-            console.log('[countdown] 0s — refreshing', market, symbol, tf, '(cache cleared)');
+            console.log('[countdown] 0s — refreshing', market, symbol, tf, '(all caches cleared)');
             if (window.loadQuote) window.loadQuote(market, symbol);
             if (window.loadChart) window.loadChart(market, symbol, tf);
             // startCountdown will be called by loadQuote on success to reset the timer

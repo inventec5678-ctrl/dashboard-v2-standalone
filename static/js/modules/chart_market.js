@@ -26,7 +26,15 @@ function _isCacheValid(market, symbol, interval, maxAgeMs = 60000) {
 }
 
 function _invalidateCache(market, symbol, interval) {
-    _chartCache.delete(_getCacheKey(market, symbol, interval));
+    if (interval === '*' || interval === null) {
+        // Clear all intervals for this market+symbol
+        var prefix = market + '|' + symbol + '|';
+        for (var key of _chartCache.keys()) {
+            if (key.startsWith(prefix)) _chartCache.delete(key);
+        }
+    } else {
+        _chartCache.delete(_getCacheKey(market, symbol, interval));
+    }
 }
 
 // Expose _invalidateCache globally so dashboard.js countdown can force a fresh fetch

@@ -172,6 +172,30 @@ export function loadQuote(market, symbol) {
                 priceEl.className = 'chart-price ' + (data.change_pct >= 0 ? 'up' : 'dn');
             }
             if (window._updateCurrentPriceLine) window._updateCurrentPriceLine(market, data.price);
+            // 即時更新 K線最後一根（如果還在同一週期內）
+            var candleSeries = window[market + 'CandleSeries'];
+            if (candleSeries && data.price) {
+                var bars = candleSeries.data();
+                if (bars && bars.length > 0) {
+                    var lastBar = bars[bars.length - 1];
+                    var tfMap = { '15m': 15*60, '1h': 60*60, '4h': 4*60*60, 'D': 24*60*60, '1d': 24*60*60, 'W': 7*24*60*60, '1wk': 7*24*60*60, '1mo': 30*24*60*60, 'M': 30*24*60*60 };
+                    var tf = window['current' + market + 'TF'] || 'D';
+                    var periodSec = tfMap[tf] || tfMap['1d'];
+                    var nowSec = Math.floor(Date.now() / 1000);
+                    var lastBarTime = lastBar.time;
+                    var diff = nowSec - lastBarTime;
+                    if (diff >= 0 && diff <= periodSec) {
+                        candleSeries.update({
+                            time: lastBarTime,
+                            open: lastBar.open,
+                            high: Math.max(lastBar.high, data.price),
+                            low: Math.min(lastBar.low > 0 ? lastBar.low : data.price, data.price),
+                            close: data.price
+                        });
+                        console.log('[loadQuote] K-line updated: close=' + data.price + ' (diff=' + diff + 's)');
+                    }
+                }
+            }
             if (changeEl) {
                 changeEl.textContent = (data.change_pct >= 0 ? '+' : '') + data.change_pct.toFixed(2) + '%';
                 changeEl.className = data.change_pct >= 0 ? 'up' : 'dn';

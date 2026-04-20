@@ -248,6 +248,7 @@ export function loadStrategies() {
         window._currentIndicators = ind;
         window.lastSuccessfulUpdate = new Date();
         window.updateBadge('', '更新於 ' + window.formatTime(window.lastSuccessfulUpdate));
+        if (window.startCountdown) window.startCountdown();
         if (liveData.btc_price) {
             var chartPriceEl = document.getElementById('chart-price');
             if (chartPriceEl) {

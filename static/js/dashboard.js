@@ -30,6 +30,25 @@ window.currentUSTF = 'D';
 window._twseSearchTimer = null;
 window.lastSuccessfulUpdate = null;
 
+// ── Refresh Countdown Timer ──
+var UPDATE_INTERVAL_MS = 60000;
+var _countdownTimer = null;
+
+function startCountdown() {
+    var elapsed = Date.now() - (window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.getTime() : Date.now());
+    var remaining = Math.max(0, Math.ceil((UPDATE_INTERVAL_MS - elapsed) / 1000));
+    var el = document.getElementById('countdown-val');
+    if (el) el.textContent = remaining;
+    if (_countdownTimer) clearInterval(_countdownTimer);
+    _countdownTimer = setInterval(function() {
+        var elapsed2 = Date.now() - (window.lastSuccessfulUpdate ? window.lastSuccessfulUpdate.getTime() : Date.now());
+        var remaining2 = Math.max(0, Math.ceil((UPDATE_INTERVAL_MS - elapsed2) / 1000));
+        var el2 = document.getElementById('countdown-val');
+        if (el2) el2.textContent = remaining2;
+    }, 1000);
+}
+window.startCountdown = startCountdown;
+
 // ── Expose unified market functions globally ──
 window.onSymbolChange = chartMarket.onSymbolChange;
 window.loadQuote = chartMarket.loadQuote;
@@ -117,6 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Initial load ──
     window.switchMarket('CRYPTO');
     window.loadStrategies();
+    startCountdown();
 });
 
 // Fallback: run immediately if DOM already loaded
@@ -124,6 +144,7 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     setTimeout(function() {
         window.switchMarket('CRYPTO');
         window.loadStrategies();
+        startCountdown();
     }, 10);
 }
 

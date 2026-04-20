@@ -129,12 +129,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // ── Initial symbol list loading ──
-    setTimeout(function() {
-        window.loadSymbols('CRYPTO');
-        window.loadSymbols('TWSE');
-        window.loadSymbols('US');
-    }, 100);
+    // ── Initial symbol list loading (同步，先於任何 UI 初始化) ──
+    // 明確設定所有市場的 current symbol，避免切換時 undefined
+    window.currentCRYPTOTStock = 'BTCUSDT';
+    window.currentTWSStock = '2330';
+    window.currentUSStock = 'AAPL';
+
+    // 同步載入所有 symbol lists（loadSymbols 會自動挑第一個並渲染 chart）
+    window.loadSymbols('CRYPTO');
+    window.loadSymbols('TWSE');
+    window.loadSymbols('US');
 
     // ── Initial load ──
     window.switchMarket('CRYPTO');

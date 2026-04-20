@@ -80,6 +80,13 @@ export async function loadSymbols(market) {
             }
             select.appendChild(opt);
         });
+        // Auto-select first symbol and load chart (fix: initial chart won't show otherwise)
+        if (select.options.length > 0) {
+            var firstSymbol = select.options[0].value;
+            window['current' + market + 'Stock'] = firstSymbol;
+            loadQuote(market, firstSymbol);
+            loadChart(market, firstSymbol, window['current' + market + 'TF'] || 'D');
+        }
         console.log('[chart_market] loadSymbols done for', market, ':', select.options.length, 'options');
     } catch (e) {
         console.error('[chart_market] loadSymbols error', market, e);

@@ -81,11 +81,21 @@ export async function loadSymbols(market) {
             select.appendChild(opt);
         });
         // Auto-select first symbol and load chart (fix: initial chart won't show otherwise)
+        // Only auto-load for the initially active market (CRYPTO) to avoid triggering US/TWSE on page load
         if (select.options.length > 0) {
             var firstSymbol = select.options[0].value;
-            window['current' + market + 'Stock'] = firstSymbol;
-            loadQuote(market, firstSymbol);
-            loadChart(market, firstSymbol, window['current' + market + 'TF'] || 'D');
+            // Only auto-select + load chart/quote if this is the current active market
+            // to prevent US/TWSE from loading before their tab is shown
+            var currentActive = window.currentMarket || 'CRYPTO';
+            if (market === currentActive) {
+                window['current' + market + 'Stock'] = firstSymbol;
+                loadQuote(market, firstSymbol);
+                loadChart(market, firstSymbol, window['current' + market + 'TF'] || 'D');
+                console.log('[loadSymbols] auto-selected', market, '→', firstSymbol);
+            } else {
+                window['current' + market + 'Stock'] = firstSymbol;
+                console.log('[loadSymbols] pre-loaded', market, 'symbols, first=', firstSymbol, '(will not load chart until tab activated)');
+            }
         }
         console.log('[chart_market] loadSymbols done for', market, ':', select.options.length, 'options');
     } catch (e) {

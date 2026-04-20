@@ -256,6 +256,18 @@ function renderChart(market, klines) {
             rightPriceScale: { borderColor: '#30363D' },
             timeScale: { borderColor: '#30363D', timeVisible: true },
         });
+        // Apply market-specific timezone formatting to chart time axis
+        var tzOffsetMap = { 'TWSE': 8, 'US': -5, 'CRYPTO': 0 };
+        var tzOffset = tzOffsetMap[market] || 0;
+        window[chartKey].timeScale().applyOptions({
+            tickMarkFormatter: {
+                time: function(time) {
+                    var d = new Date(time * 1000);
+                    d.setHours(d.getHours() + tzOffset);
+                    return d.toISOString().replace('T', ' ').substring(0, 16);
+                }
+            }
+        });
         window[candleKey] = window[chartKey].addCandlestickSeries({
             upColor: '#3FB950', downColor: '#F85149',
             borderUpColor: '#3FB950', borderDownColor: '#F85149',

@@ -74,8 +74,7 @@ async def get_symbols(market: str = "CRYPTO"):
                 {"symbol": "2330", "display": "2330", "name": "台積電"},
                 {"symbol": "2317", "display": "2317", "name": "鴻海"},
                 {"symbol": "2454", "display": "2454", "name": "聯發科"},
-                {"symbol": "2881", "display": "2881", "name": "兆豐金"},
-                {"symbol": "2603", "display": "2603", "name": "長榮"},
+                {"symbol": "3008", "display": "3008", "name": "大立光"},
             ]
         }
     elif market == "US":
@@ -83,9 +82,8 @@ async def get_symbols(market: str = "CRYPTO"):
             "data": [
                 {"symbol": "AAPL", "display": "AAPL", "name": "Apple"},
                 {"symbol": "TSLA", "display": "TSLA", "name": "Tesla"},
+                {"symbol": "NVDA", "display": "NVDA", "name": "NVIDIA"},
                 {"symbol": "MSFT", "display": "MSFT", "name": "Microsoft"},
-                {"symbol": "GOOGL", "display": "GOOGL", "name": "Google"},
-                {"symbol": "NVDA", "display": "NVDA", "name": "Nvidia"},
             ]
         }
     return {"data": []}
@@ -459,7 +457,7 @@ async def twse_info(stock: str = Query("")):
 @app.get("/api/klines")
 async def get_klines(symbol: str = Query("BTCUSDT"), interval: str = Query("1d"),
                     limit: int = 100, market: str = Query("CRYPTO")):
-    """Unified klines endpoint: CRYPTO=Binance real, TWSE/US=mock data."""
+    """Unified klines endpoint: CRYPTO=Binance real, TWSE=FinMind real, US=yfinance real."""
     if market == "CRYPTO":
         url = "https://api.binance.com/api/v3/klines"
         binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
@@ -484,14 +482,79 @@ async def get_klines(symbol: str = Query("BTCUSDT"), interval: str = Query("1d")
                 "volume": float(d[5]),
             })
         return {"symbol": binance_symbol, "interval": interval, "data": result}
-    else:
-        # TWSE or US: mock data (real API not yet integrated)
-        base_prices = {"2330": 800.0, "2317": 180.0, "2454": 1200.0, "2881": 30.0,
-                       "2603": 150.0, "AAPL": 175.0, "TSLA": 250.0, "MSFT": 400.0,
-                       "GOOGL": 140.0, "NVDA": 800.0}
+
+    elif market == "TWSE":
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://api.finmindtrade.com/api/v4/data",
+                    params={
+                        "dataset": "TaiwanStockPrice",
+                        "data_id": symbol,
+                        "start_date": "2026-04-01",
+                        "end_date": "2026-04-20",
+                    }
+                )
+                raw = resp.json()
+                data = []
+                for d in raw.get("data", []):
+                    if d.get("open"):
+                        data.append({
+                            "time": int(datetime.strptime(d["date"], "%Y-%m-%d").timestamp()),
+                            "open": float(d["open"]),
+                            "high": float(d["max"]),
+                            "low": float(d["min"]),
+                            "close": float(d["close"]),
+                        })
+                if data:
+                    return {"symbol": symbol, "interval": "1d", "data": data[-limit:]}
+        except Exception:
+            pass
+        # Fallback to mock
+        base_prices = {"2330": 800.0, "2317": 180.0, "2454": 1200.0, "3008": 2000.0}
         base = base_prices.get(symbol, 100.0)
         data = _generate_mock_klines(num_bars=limit, base_price=base)
-        return {"symbol": symbol, "interval": interval, "data": data}
+        response = JSONResponse(content={"symbol": symbol, "interval": interval, "data": data})
+        response.headers["X-Data-Source"] = "mock"
+        return response
+
+    elif market == "US":
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(period="90d")
+            if df is not None and len(df) > 0:
+                data = []
+                for i in range(min(limit, len(df))):
+                    dt = df.index[i]
+                    ts = int(dt.timestamp()) if hasattr(dt, 'timestamp') else int(dt.to_pydatetime().timestamp())
+                    data.append({
+                        "time": ts,
+                        "open": float(df['Open'].iloc[i]),
+                        "high": float(df['High'].iloc[i]),
+                        "low": float(df['Low'].iloc[i]),
+                        "close": float(df['Close'].iloc[i]),
+                    })
+                if data:
+                    return {"symbol": symbol.upper(), "interval": "1d", "data": data[-limit:]}
+        except Exception:
+            pass
+        # Fallback to mock
+        base_prices = {"AAPL": 175.0, "TSLA": 250.0, "NVDA": 800.0, "MSFT": 400.0}
+        base = base_prices.get(symbol, 100.0)
+        data = _generate_mock_klines(num_bars=limit, base_price=base)
+        response = JSONResponse(content={"symbol": symbol, "interval": interval, "data": data})
+        response.headers["X-Data-Source"] = "mock"
+        return response
+
+    else:
+        base_prices = {"2330": 800.0, "2317": 180.0, "2454": 1200.0, "3008": 2000.0,
+                       "AAPL": 175.0, "TSLA": 250.0, "NVDA": 800.0, "MSFT": 400.0}
+        base = base_prices.get(symbol, 100.0)
+        data = _generate_mock_klines(num_bars=limit, base_price=base)
+        response = JSONResponse(content={"symbol": symbol, "interval": interval, "data": data})
+        response.headers["X-Data-Source"] = "mock"
+        return response
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Backend proxy routes (proxied to port 5008)

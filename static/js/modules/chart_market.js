@@ -116,6 +116,9 @@ export function loadQuote(market, symbol) {
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
             if (data.error) return;
+            // Update countdown timer on successful quote load
+            window.lastSuccessfulUpdate = new Date();
+            if (window.startCountdown) window.startCountdown();
             var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : 'us';
             var priceEl = document.getElementById('price-' + mkt);
             var changeEl = document.getElementById('change-' + mkt);

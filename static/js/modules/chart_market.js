@@ -113,9 +113,13 @@ export function loadQuote(market, symbol) {
         url = window.API_BASE + '/us/quote/' + symbol;
     }
     fetch(url, { signal: _quoteAbortController.signal })
-        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(r) {
+            console.log('[loadQuote] fetching', url, '→ status', r.status);
+            return r.ok ? r.json() : Promise.reject(r.status);
+        })
         .then(function(data) {
-            if (data.error) return;
+            if (data.error) { console.warn('[loadQuote] error:', data.error); return; }
+            console.log('[loadQuote] ✅', market, symbol, '→ price=' + data.price + ', change=' + (data.change_pct >= 0 ? '+' : '') + data.change_pct.toFixed(2) + '%, vol=' + data.volume);
             // Update countdown timer on successful quote load
             window.lastSuccessfulUpdate = new Date();
             if (window.startCountdown) window.startCountdown();

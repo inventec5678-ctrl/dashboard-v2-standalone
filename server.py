@@ -48,8 +48,78 @@ async def dashboard():
         return HTMLResponse(content=f.read())
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Symbol API
+# Unified Symbol API (Iteration 3)
 # ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/symbols")
+async def get_symbols(market: str = "CRYPTO"):
+    if market == "CRYPTO":
+        return {
+            "data": [
+                {"symbol": "BTCUSDT", "display": "BTC", "name": "Bitcoin"},
+                {"symbol": "ETHUSDT", "display": "ETH", "name": "Ethereum"},
+                {"symbol": "BNBUSDT", "display": "BNB", "name": "BNB"},
+                {"symbol": "SOLUSDT", "display": "SOL", "name": "Solana"},
+                {"symbol": "XRPUSDT", "display": "XRP", "name": "XRP"},
+                {"symbol": "ADAUSDT", "display": "ADA", "name": "Cardano"},
+                {"symbol": "DOGEUSDT", "display": "DOGE", "name": "Dogecoin"},
+                {"symbol": "AVAXUSDT", "display": "AVAX", "name": "Avalanche"},
+                {"symbol": "DOTUSDT", "display": "DOT", "name": "Polkadot"},
+                {"symbol": "LINKUSDT", "display": "LINK", "name": "Chainlink"},
+            ]
+        }
+    elif market == "TWSE":
+        return {
+            "data": [
+                {"symbol": "2330", "display": "2330", "name": "台積電"},
+                {"symbol": "2317", "display": "2317", "name": "鴻海"},
+                {"symbol": "2454", "display": "2454", "name": "聯發科"},
+                {"symbol": "2881", "display": "2881", "name": "兆豐金"},
+                {"symbol": "2603", "display": "2603", "name": "長榮"},
+            ]
+        }
+    elif market == "US":
+        return {
+            "data": [
+                {"symbol": "AAPL", "display": "AAPL", "name": "Apple"},
+                {"symbol": "TSLA", "display": "TSLA", "name": "Tesla"},
+                {"symbol": "MSFT", "display": "MSFT", "name": "Microsoft"},
+                {"symbol": "GOOGL", "display": "GOOGL", "name": "Google"},
+                {"symbol": "NVDA", "display": "NVDA", "name": "Nvidia"},
+            ]
+        }
+    return {"data": []}
+
+
+def _generate_mock_klines(num_bars: int = 100, base_price: float = 100.0):
+    """Generate mock OHLCV data for TWSE/US when real data is unavailable."""
+    import random
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    data = []
+    price = base_price
+    for i in range(num_bars):
+        t = now - timedelta(days=num_bars - i)
+        ts = int(t.timestamp())
+        change = random.uniform(-0.03, 0.035)
+        open_p = price
+        close = price * (1 + change)
+        high = max(open_p, close) * (1 + random.uniform(0, 0.015))
+        low = min(open_p, close) * (1 - random.uniform(0, 0.015))
+        volume = random.randint(100000, 5000000)
+        data.append({
+            "time": ts,
+            "open": round(open_p, 2),
+            "high": round(high, 2),
+            "low": round(low, 2),
+            "close": round(close, 2),
+            "volume": volume,
+        })
+        price = close
+    return data
+
+
+# ── Legacy symbol endpoints (backward compat) ─────────────────────────────
 
 @app.get("/api/symbols/crypto")
 async def get_symbols_crypto():
@@ -383,28 +453,45 @@ async def twse_info(stock: str = Query("")):
 # ══════════════════════════════════════════════════════════════════════════════
 # Binance / Crypto Endpoints
 # ══════════════════════════════════════════════════════════════════════════════
+# Multi-Market K-Line Endpoint (Iteration 3)
+# ══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/klines")
-async def get_klines(symbol: str = Query(""), interval: str = Query(""), limit: int = 300):
-    url = f"https://api.binance.com/api/v3/klines"
-    binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
-    params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(url, params=params)
-        raw = r.json()
-    # Transform to standardized format
-    result = []
-    for d in raw:
-        ts = int(d[0]) // 1000  # ms -> seconds
-        result.append({
-            "time": ts,
-            "open": float(d[1]),
-            "high": float(d[2]),
-            "low": float(d[3]),
-            "close": float(d[4]),
-            "volume": float(d[5]),
-        })
-    return {"symbol": binance_symbol, "interval": interval, "data": result}
+async def get_klines(symbol: str = Query("BTCUSDT"), interval: str = Query("1d"),
+                    limit: int = 100, market: str = Query("CRYPTO")):
+    """Unified klines endpoint: CRYPTO=Binance real, TWSE/US=mock data."""
+    if market == "CRYPTO":
+        url = "https://api.binance.com/api/v3/klines"
+        binance_symbol = symbol.upper() + "USDT" if not symbol.upper().endswith("USDT") else symbol.upper()
+        binance_interval_map = {
+            "1d": "1d", "1h": "1h", "4h": "4h", "1wk": "1w", "1mo": "1M",
+            "15m": "15m", "5m": "5m", "D": "1d", "W": "1w", "M": "1M"
+        }
+        binance_interval = binance_interval_map.get(interval, interval)
+        params = {"symbol": binance_symbol, "interval": binance_interval, "limit": limit}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.get(url, params=params)
+            raw = r.json()
+        result = []
+        for d in raw:
+            ts = int(d[0]) // 1000
+            result.append({
+                "time": ts,
+                "open": float(d[1]),
+                "high": float(d[2]),
+                "low": float(d[3]),
+                "close": float(d[4]),
+                "volume": float(d[5]),
+            })
+        return {"symbol": binance_symbol, "interval": interval, "data": result}
+    else:
+        # TWSE or US: mock data (real API not yet integrated)
+        base_prices = {"2330": 800.0, "2317": 180.0, "2454": 1200.0, "2881": 30.0,
+                       "2603": 150.0, "AAPL": 175.0, "TSLA": 250.0, "MSFT": 400.0,
+                       "GOOGL": 140.0, "NVDA": 800.0}
+        base = base_prices.get(symbol, 100.0)
+        data = _generate_mock_klines(num_bars=limit, base_price=base)
+        return {"symbol": symbol, "interval": interval, "data": data}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Backend proxy routes (proxied to port 5008)

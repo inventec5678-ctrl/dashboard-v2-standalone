@@ -1,149 +1,82 @@
-// chart_market.js — 通用市場圖表渲染
+// chart_market.js — 通用市場圖表渲染（含 SMA/RSI 指標副圖，Iteration 3）
 
 // Keep track of in-flight request abort controllers
 var _chartAbortController = null;
 var _quoteAbortController = null;
 
-// ====== In-Memory Cache ======
-const _chartCache = new Map(); // key: `${market}|${symbol}|${interval}`, value: { bars: [...], ts: number }
+// ── Math helpers ─────────────────────────────────────────────────────────
 
-function _getCacheKey(market, symbol, interval) {
-    return `${market}|${symbol}|${interval}`;
+function _normTime(t) {
+    if (typeof t === 'number') return t > 1e12 ? Math.floor(t / 1000) : t;
+    return t;
 }
 
-function _setCache(market, symbol, interval, bars) {
-    _chartCache.set(_getCacheKey(market, symbol, interval), { bars, ts: Date.now() });
-}
-
-function _getCache(market, symbol, interval) {
-    return _chartCache.get(_getCacheKey(market, symbol, interval));
-}
-
-function _isCacheValid(market, symbol, interval, maxAgeMs = 60000) {
-    const entry = _getCache(market, symbol, interval);
-    if (!entry) return false;
-    return (Date.now() - entry.ts) < maxAgeMs;
-}
-
-function _invalidateCache(market, symbol, interval) {
-    if (interval === '*' || interval === null) {
-        // Clear all intervals for this market+symbol
-        var prefix = market + '|' + symbol + '|';
-        for (var key of _chartCache.keys()) {
-            if (key.startsWith(prefix)) _chartCache.delete(key);
-        }
-    } else {
-        _chartCache.delete(_getCacheKey(market, symbol, interval));
+function _calcSMA(closes, period) {
+    var result = [];
+    for (var i = period - 1; i < closes.length; i++) {
+        var sum = 0;
+        for (var j = 0; j < period; j++) sum += closes[i - j];
+        result.push(sum / period);
     }
+    return result;
 }
 
-// Expose _invalidateCache globally so dashboard.js countdown can force a fresh fetch
-window._invalidateCache = _invalidateCache;
-
-// ====== Current Price Line ======
-function _updateCurrentPriceLine(market, price) {
-    var candleSeries = window[market + 'CandleSeries'];
-    if (!candleSeries || !price) return;
-    if (window._currentPriceLine) {
-        window._currentPriceLine.remove();
-        window._currentPriceLine = null;
+function _calcRSI(closes, period) {
+    if (closes.length < period + 1) return [];
+    var gains = [], losses = [];
+    for (var i = 1; i < closes.length; i++) {
+        var diff = closes[i] - closes[i - 1];
+        gains.push(diff > 0 ? diff : 0);
+        losses.push(diff < 0 ? -diff : 0);
     }
-    window._currentPriceLine = candleSeries.createPriceLine({
-        price: price,
-        color: '#58A6FF',
-        lineWidth: 1,
-        lineStyle: 0,
-        axisLabelVisible: true,
-        title: ' NOW',
-    });
+    var result = [];
+    for (var i = period; i < gains.length; i++) {
+        var avgGain = 0, avgLoss = 0;
+        for (var j = i - period; j < i; j++) { avgGain += gains[j]; avgLoss += losses[j]; }
+        avgGain /= period; avgLoss /= period;
+        var rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        result.push(100 - (100 / (1 + rs)));
+    }
+    return result;
 }
-window._updateCurrentPriceLine = _updateCurrentPriceLine;
 
-// 通用標的載入
+// ── 通用標的載入（Iteration 3 — 統一 /api/symbols?market= ────────────────
+
 export async function loadSymbols(market) {
-    // 使用 querySelector 找 select（更寬鬆的匹配）
-    var select = document.querySelector('[id="symbol-select-' + market + '"]');
+    // Try multiple ID variants
+    var select = document.getElementById('symbol-select-' + market.toLowerCase());
     if (!select) {
-        // 嘗試各种可能的大小寫組合
-        var attempts = [
-            'symbol-select-' + market.toLowerCase(),
-            'symbol-select-' + market.toUpperCase(),
-            'symbol-select-' + market
-        ];
-        for (var i = 0; i < attempts.length; i++) {
-            select = document.getElementById(attempts[i]);
-            if (select) break;
+        var alts = ['symbol-select-' + market.toUpperCase(), 'symbol-select-' + market];
+        for (var i = 0; i < alts.length; i++) {
+            var s = document.getElementById(alts[i]);
+            if (s) { select = s; break; }
         }
     }
-    if (!select) {
-        console.warn('[chart_market] loadSymbols: select not found for', market, '- all IDs:', Array.from(document.querySelectorAll('[id^="symbol-select"]')).map(function(e) { return e.id; }));
-        return;
-    }
+    if (!select) return;
 
-    var url;
-    if (market === 'CRYPTO') {
-        url = window.API_BASE + '/symbols/crypto';
-    } else if (market === 'TWSE') {
-        url = window.API_BASE + '/symbols/twse';
-    } else {
-        url = window.API_BASE + '/symbols/' + market.toLowerCase();
-    }
-
+    var url = window.API_BASE + '/symbols?market=' + market;
     try {
         var resp = await fetch(url);
-        var data = await resp.json();
-        // Handle both flat {symbols: [...]} and nested {data: {symbols: [...]}} formats
-        var symData = data;
-        if (!symData.symbols && data.data && data.data.symbols) {
-            symData = data.data;
-        }
-        if (!symData.symbols) { console.warn('no symbols in data'); return; }
+        var json = await resp.json();
+        var symList = json.data && Array.isArray(json.data) ? json.data : [];
         select.innerHTML = '';
-        symData.symbols.forEach(function(s) {
+        symList.forEach(function(s) {
             var opt = document.createElement('option');
-            if (market === 'TWSE') {
-                opt.value = s.code;
-                opt.textContent = s.code + (s.name ? ' ' + s.name : '');
-            } else {
-                opt.value = s.symbol;
-                opt.textContent = (s.display || s.symbol) + (s.name ? ' ' + s.name : '');
-            }
+            opt.value = s.symbol;
+            opt.textContent = s.display + (s.name ? ' — ' + s.name : '');
             select.appendChild(opt);
         });
-        // Auto-select first symbol and load chart (fix: initial chart won't show otherwise)
-        // Only auto-load for the initially active market (CRYPTO) to avoid triggering US/TWSE on page load
-        if (select.options.length > 0) {
-            var firstSymbol = select.options[0].value;
-            // Only auto-select + load chart/quote if this is the current active market
-            // to prevent US/TWSE from loading before their tab is shown
-            var currentActive = window.currentMarket || 'CRYPTO';
-            if (market === currentActive) {
-                window['current' + market + 'Stock'] = firstSymbol;
-                loadQuote(market, firstSymbol);
-                loadChart(market, firstSymbol, window['current' + market + 'TF'] || 'D');
-                console.log('[loadSymbols] auto-selected', market, '→', firstSymbol);
-            } else {
-                window['current' + market + 'Stock'] = firstSymbol;
-                console.log('[loadSymbols] pre-loaded', market, 'symbols, first=', firstSymbol, '(will not load chart until tab activated)');
-            }
-        }
-        console.log('[chart_market] loadSymbols done for', market, ':', select.options.length, 'options');
     } catch (e) {
         console.error('[chart_market] loadSymbols error', market, e);
     }
 }
 
 export function loadQuote(market, symbol) {
-    if (!symbol || symbol === '') {
-        console.warn('[chart_market] loadQuote: empty symbol');
-        return;
-    }
-    // Cancel any in-flight request
-    if (_quoteAbortController) {
-        _quoteAbortController.abort();
-    }
+    if (!symbol) return;
+    if (_quoteAbortController) _quoteAbortController.abort();
     _quoteAbortController = new AbortController();
 
+    var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : 'us';
     var url;
     if (market === 'CRYPTO') {
         url = window.API_BASE + '/crypto/quote?symbol=' + symbol;
@@ -153,17 +86,9 @@ export function loadQuote(market, symbol) {
         url = window.API_BASE + '/us/quote/' + symbol;
     }
     fetch(url, { signal: _quoteAbortController.signal })
-        .then(function(r) {
-            console.log('[loadQuote] fetching', url, '→ status', r.status);
-            return r.ok ? r.json() : Promise.reject(r.status);
-        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(data) {
-            if (data.error) { console.warn('[loadQuote] error:', data.error); return; }
-            console.log('[loadQuote] ✅', market, symbol, '→ price=' + data.price + ', change=' + (data.change_pct >= 0 ? '+' : '') + data.change_pct.toFixed(2) + '%, vol=' + data.volume);
-            // Update countdown timer on successful quote load
-            window.lastSuccessfulUpdate = new Date();
-            if (window.startCountdown) window.startCountdown();
-            var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : 'us';
+            if (data.error) return;
             var priceEl = document.getElementById('price-' + mkt);
             var changeEl = document.getElementById('change-' + mkt);
             var volEl = document.getElementById('volume-' + mkt);
@@ -171,226 +96,226 @@ export function loadQuote(market, symbol) {
                 priceEl.textContent = window.fmtPrice(data.price);
                 priceEl.className = 'chart-price ' + (data.change_pct >= 0 ? 'up' : 'dn');
             }
-            if (window._updateCurrentPriceLine) window._updateCurrentPriceLine(market, data.price);
-            // 即時更新 K線最後一根（如果還在同一週期內）
-            var candleSeries = window[market + 'CandleSeries'];
-            if (candleSeries && data.price) {
-                var bars = candleSeries.data();
-                if (bars && bars.length > 0) {
-                    var lastBar = bars[bars.length - 1];
-                    var tfMap = { '15m': 15*60, '1h': 60*60, '4h': 4*60*60, 'D': 24*60*60, '1d': 24*60*60, 'W': 7*24*60*60, '1wk': 7*24*60*60, '1mo': 30*24*60*60, 'M': 30*24*60*60 };
-                    var tf = window['current' + market + 'TF'] || 'D';
-                    var periodSec = tfMap[tf] || tfMap['1d'];
-                    var nowSec = Math.floor(Date.now() / 1000);
-                    var lastBarTime = lastBar.time;
-                    var diff = nowSec - lastBarTime;
-                    if (diff >= 0 && diff <= periodSec) {
-                        candleSeries.update({
-                            time: lastBarTime,
-                            open: lastBar.open,
-                            high: Math.max(lastBar.high, data.price),
-                            low: Math.min(lastBar.low > 0 ? lastBar.low : data.price, data.price),
-                            close: data.price
-                        });
-                        console.log('[loadQuote] K-line updated: close=' + data.price + ' (diff=' + diff + 's)');
-                    }
-                }
-            }
             if (changeEl) {
                 changeEl.textContent = (data.change_pct >= 0 ? '+' : '') + data.change_pct.toFixed(2) + '%';
                 changeEl.className = data.change_pct >= 0 ? 'up' : 'dn';
             }
             if (volEl) volEl.textContent = 'Vol: ' + window.fmtNum(data.volume);
         })
-        .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] loadQuote error', market, e); });
+        .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] loadQuote error', e); });
 }
 
 export function loadChart(market, symbol, tf) {
-    if (!symbol || symbol === '') {
-        console.warn('[chart_market] loadChart: empty symbol');
-        return;
-    }
-    // Cancel any in-flight request
-    if (_chartAbortController) {
-        _chartAbortController.abort();
-    }
+    if (!symbol) return;
+    if (_chartAbortController) _chartAbortController.abort();
     _chartAbortController = new AbortController();
 
-    var intervalMap = {
-        'D': '1d', 'W': '1wk', 'M': '1mo',
-        '4h': '4h', '1h': '1h', '15m': '15m', '5m': '5m'
-    };
-    var interval = intervalMap[tf] || '1d';
+    var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : market.toLowerCase();
+    var chartEl = document.getElementById('chart-' + mkt);
+    if (chartEl) chartEl.classList.add('chart-loading');
 
-    var limitMap = {
-        '15m': 300, '1h': 300, '4h': 300, 'D': 365, 'W': 260, 'M': 120
-    };
-    var limit = limitMap[tf] || 300;
+    var intervalMap = { 'D': '1d', 'W': '1wk', 'M': '1mo', '4h': '4h', '1h': '1h', '15m': '15m', '5m': '5m' };
+    var interval = intervalMap[tf] || '1d';
+    var limit = 100;
+
     var url;
     if (market === 'CRYPTO') {
         url = window.API_BASE + '/crypto/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit;
     } else if (market === 'TWSE') {
         url = window.API_BASE + '/twse/klines?stock=' + symbol + '&interval=' + interval + '&limit=' + limit;
     } else {
-        url = window.API_BASE + '/' + market.toLowerCase() + '/klines/' + symbol + '?interval=' + interval + '&limit=' + limit;
-    }
-
-    // 先查 cache（cache 有效就直接渲染，不 fetch）
-    var cached = _getCache(market, symbol, interval);
-    if (cached && _isCacheValid(market, symbol, interval)) {
-        renderChart(market, cached.bars);
-        return;
+        // Use unified endpoint for US
+        url = window.API_BASE + '/klines?symbol=' + symbol + '&interval=' + interval + '&limit=' + limit + '&market=' + market;
     }
 
     fetch(url, { signal: _chartAbortController.signal })
         .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function(raw) {
-            // Normalize: TWSE/US={symbol,interval,data:[...]}, some={data:[]}
-            var klines = raw.data && Array.isArray(raw.data) ? raw.data : (raw.data && raw.data.data ? raw.data.data : raw.data);
-            if (!klines || !klines.length) {
-                console.warn('[chart_market] No data for', market, symbol, 'url:', url);
-                return;
-            }
-            _setCache(market, symbol, interval, klines); // 更新 cache
+            var klines = raw.data && Array.isArray(raw.data) ? raw.data : [];
+            if (!klines || !klines.length) { console.warn('[chart_market] No data for', market, symbol); return; }
             renderChart(market, klines);
         })
-        .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] Chart load error', market, symbol, url, e); });
+        .catch(function(e) { if (e.name === 'AbortError') return; console.error('[chart_market] Chart load error', e); })
+        .finally(function() { if (chartEl) chartEl.classList.remove('chart-loading'); });
 }
+
+// ── Core chart renderer — K線 + Vol + SMA pane + RSI pane ────────────────
 
 function renderChart(market, klines) {
     var mkt = market === 'CRYPTO' ? 'crypto' : market === 'TWSE' ? 'twse' : market.toLowerCase();
-    var chartId = 'chart-' + mkt;
-    var volId = 'chart-' + mkt + '-vol';
-    var container = document.getElementById(chartId);
-    var volContainer = document.getElementById(volId);
-    if (!container) { console.warn('[chart_market] Chart container not found:', chartId); return; }
+    var chartId    = 'chart-' + mkt;
+    var volId      = 'chart-' + mkt + '-vol';
+    var smaId      = 'chart-' + mkt + '-sma';
+    var rsiId      = 'chart-' + mkt + '-rsi';
 
-    function normTime(t) {
-        if (typeof t === 'number') return t > 1e12 ? Math.floor(t / 1000) : t;
-        return t;
-    }
+    var container  = document.getElementById(chartId);
+    var volEl      = document.getElementById(volId);
+    var smaEl      = document.getElementById(smaId);
+    var rsiEl      = document.getElementById(rsiId);
+    if (!container) return;
 
+    // Normalise candle data
     var cdata = klines.map(function(d) {
-        return {
-            time: normTime(d.time),
-            open: parseFloat(d.open),
-            high: parseFloat(d.high),
-            low: parseFloat(d.low),
-            close: parseFloat(d.close)
-        };
+        return { time: _normTime(d.time), open: parseFloat(d.open), high: parseFloat(d.high),
+                 low: parseFloat(d.low), close: parseFloat(d.close) };
     });
-
     var vdata = klines.map(function(d) {
         var vol = parseFloat(d.volume) || 0;
         var color = parseFloat(d.close) >= parseFloat(d.open) ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)';
-        return { time: normTime(d.time), value: vol, color: color };
+        return { time: _normTime(d.time), value: vol, color: color };
     });
+    var closes = cdata.map(function(d) { return d.close; });
 
-    var chartKey = market + 'Chart';
-    var candleKey = market + 'CandleSeries';
-    var volKey = market + 'VolSeries';
-    var volChartKey = market + 'VolChart';
+    // Destroy old instances
+    _destroyMarketCharts(market);
 
-    // Reuse chart instance if it exists; only create if not
-    if (!window[chartKey]) {
-        window[chartKey] = LightweightCharts.createChart(container, {
-            width: container.clientWidth, height: container.clientHeight || 480,
+    var chartOpts = {
+        width: container.clientWidth, height: container.clientHeight || 360,
+        layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
+        grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
+        rightPriceScale: { borderColor: '#30363D' },
+        timeScale: { borderColor: '#30363D', timeVisible: true },
+    };
+
+    // Main K-line chart
+    var chart = LightweightCharts.createChart(container, chartOpts);
+    var candleSeries = chart.addCandlestickSeries({
+        upColor: '#3FB950', downColor: '#F85149',
+        borderUpColor: '#3FB950', borderDownColor: '#F85149',
+        wickUpColor: '#3FB950', wickDownColor: '#F85149',
+    });
+    candleSeries.setData(cdata);
+    chart.timeScale().fitContent();
+
+    // Volume chart
+    var volChart = null, volSeries = null;
+    if (volEl) {
+        volChart = LightweightCharts.createChart(volEl, {
+            width: volEl.clientWidth, height: volEl.clientHeight || 120,
             layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
             grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
             rightPriceScale: { borderColor: '#30363D' },
             timeScale: { borderColor: '#30363D', timeVisible: true },
         });
-        // Apply market-specific timezone formatting to chart time axis
-        var tzOffsetMap = { 'TWSE': 8, 'US': -5, 'CRYPTO': 0 };
-        var tzOffset = tzOffsetMap[market] || 0;
-        window[chartKey].timeScale().applyOptions({
-            tickMarkFormatter: function(time, tickMarkType, locale) {
-                var d = new Date(time * 1000);
-                d.setHours(d.getHours() + tzOffset);
-                return d.toISOString().replace('T', ' ').substring(0, 16);
-            }
-        });
-        window[candleKey] = window[chartKey].addCandlestickSeries({
-            upColor: '#3FB950', downColor: '#F85149',
-            borderUpColor: '#3FB950', borderDownColor: '#F85149',
-            wickUpColor: '#3FB950', wickDownColor: '#F85149',
-        });
-        // Sync via timestamps (reliable, works across different bar counts)
-        window[chartKey].timeScale().subscribeVisibleTimeRangeChange(function() {
-            var newRange = window[chartKey].timeScale().getVisibleLogicalRange();
-            var vc = window[volChartKey];
-            if (newRange && vc) { vc.timeScale().setVisibleLogicalRange(newRange); }
-        });
-        // Sync crosshair main → vol
-        window[chartKey].subscribeCrosshairMove(function(param) {
-            var cs = window[candleKey];
-            var vs = window[volKey];
-            var vc = window[volChartKey];
-            if (!param || !param.time || !vs || !vc || !cs) return;
-            var logical = param.seriesData.get(cs);
-            if (logical !== undefined) { vc.setCrosshairPosition(logical.close, param.time, vs); }
-        });
-    }
-
-    var chart = window[chartKey];
-    var candleSeries = window[candleKey];
-
-    candleSeries.setData(cdata);
-
-    var volChart = null, volSeries = null;
-    if (volContainer) {
-        if (!window[volChartKey]) {
-            window[volChartKey] = LightweightCharts.createChart(volContainer, {
-                width: volContainer.clientWidth, height: volContainer.clientHeight || 150,
-                layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
-                grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
-                rightPriceScale: { borderColor: '#30363D' },
-                timeScale: { borderColor: '#30363D', timeVisible: true },
-            });
-            window[volKey] = window[volChartKey].addHistogramSeries({ color: '#58A6FF', priceFormat: { type: 'volume' }, priceScaleId: '' });
-            window[volChartKey].priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-            // Sync vol → main time scale
-            window[volChartKey].timeScale().subscribeVisibleTimeRangeChange(function() {
-                var newRange = window[volChartKey].timeScale().getVisibleLogicalRange();
-                var mc = window[chartKey];
-                if (newRange && mc) { mc.timeScale().setVisibleLogicalRange(newRange); }
-            });
-            // Sync crosshair vol → main
-            window[volChartKey].subscribeCrosshairMove(function(param) {
-                var cs = window[candleKey];
-                var vs = window[volKey];
-                var mc = window[chartKey];
-                if (!param || !param.time || !vs || !mc || !cs) return;
-                var logical = param.seriesData.get(vs);
-                if (logical !== undefined) { mc.setCrosshairPosition(logical.value, param.time, cs); }
-            });
-        }
-        volChart = window[volChartKey];
-        volSeries = window[volKey];
+        volSeries = volChart.addHistogramSeries({ color: '#58A6FF', priceFormat: { type: 'volume' }, priceScaleId: '' });
         volSeries.setData(vdata);
+        volChart.priceScale('').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+        _syncTimeScale(chart, volChart);
+        _syncCrosshair(chart, volChart, candleSeries, volSeries);
     }
 
-    // Resize listener (always replace — keyed by market, safe to overwrite)
-    var key = 'resize_' + market;
-    if (window[key]) window.removeEventListener('resize', window[key]);
-    window[key] = function() {
-        var c = document.getElementById(chartId);
-        var vc = document.getElementById(volId);
-        if (window[chartKey] && c) window[chartKey].applyOptions({ width: c.clientWidth });
-        if (window[volChartKey] && vc) window[volChartKey].applyOptions({ width: vc.clientWidth });
+    // SMA pane
+    var smaChart = null, smaSeries = null;
+    if (smaEl) {
+        smaChart = LightweightCharts.createChart(smaEl, {
+            width: smaEl.clientWidth, height: smaEl.clientHeight || 100,
+            layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
+            grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
+            rightPriceScale: { borderColor: '#30363D' },
+            timeScale: { borderColor: '#30363D', timeVisible: true },
+        });
+        smaSeries = smaChart.addLineSeries({ color: '#FFA500', lineWidth: 1, title: 'SMA20' });
+        var smaVals = _calcSMA(closes, 20);
+        var smaTimes = cdata.slice(19).map(function(d) { return d.time; });
+        var smaData = smaVals.map(function(v, i) { return { time: smaTimes[i], value: v }; });
+        smaSeries.setData(smaData);
+        smaChart.timeScale().fitContent();
+        _syncTimeScale(chart, smaChart);
+    }
+
+    // RSI pane
+    var rsiChart = null, rsiSeries = null;
+    if (rsiEl) {
+        rsiChart = LightweightCharts.createChart(rsiEl, {
+            width: rsiEl.clientWidth, height: rsiEl.clientHeight || 100,
+            layout: { background: { color: '#161B22' }, textColor: '#8B949E' },
+            grid: { vertLines: { color: '#1C2128' }, horzLines: { color: '#1C2128' } },
+            rightPriceScale: { borderColor: '#30363D' },
+            timeScale: { borderColor: '#30363D', timeVisible: true },
+        });
+        rsiSeries = rsiChart.addLineSeries({ color: '#9B59B6', lineWidth: 1, title: 'RSI14' });
+        var rsiVals = _calcRSI(closes, 14);
+        var rsiTimes = cdata.slice(14).map(function(d) { return d.time; });
+        var rsiData = rsiVals.map(function(v, i) { return { time: rsiTimes[i], value: v }; });
+        rsiSeries.setData(rsiData);
+
+        // RSI reference lines: overbought / oversold
+        rsiSeries.createPriceLine({ price: 70, color: '#F85149', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OB' });
+        rsiSeries.createPriceLine({ price: 30, color: '#3FB950', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OS' });
+
+        rsiChart.timeScale().fitContent();
+        _syncTimeScale(chart, rsiChart);
+    }
+
+    // Resize handling
+    var rk = 'resize_' + market;
+    if (window[rk]) window.removeEventListener('resize', window[rk]);
+    window[rk] = function() {
+        var ids = [chartId, volId, smaId, rsiId];
+        var charts = [chart, volChart, smaChart, rsiChart];
+        ids.forEach(function(id, i) {
+            var el = document.getElementById(id);
+            if (el && charts[i]) charts[i].applyOptions({ width: el.clientWidth });
+        });
     };
-    window.addEventListener('resize', window[key]);
-    window[key]();
+    window.addEventListener('resize', window[rk]);
+    window[rk]();
 
-    chart.timeScale().fitContent();
-
+    // Update price display
     var last = cdata[cdata.length - 1];
     if (last) {
         var priceEl = document.getElementById('price-' + mkt);
         if (priceEl) { priceEl.textContent = last.close.toLocaleString(); priceEl.className = 'chart-price'; }
     }
 
+    // Store state
     window._chartCandleData = cdata;
+    window[market + 'Chart']       = chart;
+    window[market + 'CandleSeries'] = candleSeries;
+    window[market + 'VolChart']   = volChart;
+    window[market + 'VolSeries']  = volSeries;
+    window[market + 'SMAChart']  = smaChart;
+    window[market + 'SMASeries']  = smaSeries;
+    window[market + 'RSIChart']  = rsiChart;
+    window[market + 'RSISeries'] = rsiSeries;
+}
+
+function _syncTimeScale(mainChart, slaveChart) {
+    mainChart.timeScale().subscribeVisibleTimeRangeChange(function() {
+        var r = mainChart.timeScale().getVisibleLogicalRange();
+        if (r && slaveChart) slaveChart.timeScale().setVisibleLogicalRange(r);
+    });
+    slaveChart.timeScale().subscribeVisibleTimeRangeChange(function() {
+        var r = slaveChart.timeScale().getVisibleLogicalRange();
+        if (r && mainChart) mainChart.timeScale().setVisibleLogicalRange(r);
+    });
+}
+
+function _syncCrosshair(mainChart, slaveChart, mainSeries, slaveSeries) {
+    mainChart.subscribeCrosshairMove(function(p) {
+        if (!p || !p.time || !slaveSeries || !slaveChart) return;
+        var v = p.seriesData.get(mainSeries);
+        if (v !== undefined) slaveChart.setCrosshairPosition(v.close, p.time, slaveSeries);
+    });
+    slaveChart.subscribeCrosshairMove(function(p) {
+        if (!p || !p.time || !mainSeries || !mainChart) return;
+        var v = p.seriesData.get(slaveSeries);
+        if (v !== undefined) mainChart.setCrosshairPosition(v.value, p.time, mainSeries);
+    });
+}
+
+function _destroyMarketCharts(market) {
+    var keys = [market + 'Chart', market + 'CandleSeries',
+                market + 'VolChart', market + 'VolSeries',
+                market + 'SMAChart', market + 'SMASeries',
+                market + 'RSIChart', market + 'RSISeries'];
+    keys.forEach(function(k) {
+        if (window[k]) {
+            try { window[k].remove(); } catch(e) {}
+            window[k] = null;
+        }
+    });
 }
 
 export function onSymbolChange(market, symbol) {

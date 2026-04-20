@@ -1,12 +1,40 @@
-// ── Market Switching Module ──
+// ── Market Switching Module (Iteration 3) ──
+
+function _destroyAllMarketCharts() {
+    ['CRYPTO', 'TWSE', 'US'].forEach(function(m) {
+        var keys = [m + 'Chart', m + 'CandleSeries', m + 'VolChart', m + 'VolSeries',
+                    m + 'SMAChart', m + 'SMASeries', m + 'RSIChart', m + 'RSISeries'];
+        keys.forEach(function(k) {
+            if (window[k]) {
+                try { window[k].remove(); } catch(e) {}
+                window[k] = null;
+            }
+        });
+        var rk = 'resize_' + m;
+        if (window[rk]) { window.removeEventListener('resize', window[rk]); window[rk] = null; }
+    });
+    // Clean up strategy overlay series
+    if (window._priceLines) { window._priceLines.forEach(function(l) { try { if (l && l.remove) l.remove(); } catch(e) {} }); window._priceLines = []; }
+    if (window._maLineSeries)  { try { window._maLineSeries.remove();  } catch(e) {} window._maLineSeries  = null; }
+    if (window._rsiLineSeries) { try { window._rsiLineSeries.remove(); } catch(e) {} window._rsiLineSeries = null; }
+}
 
 export function switchMarket(market) {
-    // 切換前先銷毀舊 chart 實例，防止記憶體 leak
-    // E fix: removed _highlightCryptoButton('BTCUSDT') from CRYPTO branch
+    window.currentMarket = market;
 
-    // TODO-007 fix: clear all market price displays before loading new data
-    var markets = ['crypto', 'twse', 'us'];
-    markets.forEach(function(m) {
+    // ── 1. Cleanup all chart instances ─────────────────────────────────
+    _destroyAllMarketCharts();
+
+    // Clear chart container innerHTML to prevent ghost charts on re-render
+    ['crypto', 'twse', 'us'].forEach(function(m) {
+        ['chart-' + m, 'chart-' + m + '-vol', 'chart-' + m + '-sma', 'chart-' + m + '-rsi'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        });
+    });
+
+    // ── 2. Clear price displays ───────────────────────────────────────────
+    ['crypto', 'twse', 'us'].forEach(function(m) {
         var pe = document.getElementById('price-' + m);
         var ce = document.getElementById('change-' + m);
         var ve = document.getElementById('volume-' + m);
@@ -15,135 +43,54 @@ export function switchMarket(market) {
         if (ve) ve.textContent = '—';
     });
 
-    // L fix: cleanup overlay series before destroying charts
-    if (window._priceLines) { window._priceLines.forEach(function(line) { try { if (line) line.remove(); } catch(e) {} }); window._priceLines = []; }
-    if (window._maLineSeries) { try { window._maLineSeries.remove(); } catch(e) {} window._maLineSeries = null; }
-    if (window._rsiLineSeries) { try { window._rsiLineSeries.remove(); } catch(e) {} window._rsiLineSeries = null; }
-
-    // L fix: also cleanup resize listeners for ALL markets
-    // When switching market, destroy all charts and their resize listeners
-    ['CRYPTO', 'TWSE', 'US'].forEach(function(m) {
-        var rk = 'resize_' + m;
-        if (window[rk]) {
-            window.removeEventListener('resize', window[rk]);
-            window[rk] = null;
-        }
+    // Reset sentiment chips
+    ['rsi', 'rsi4h', 'ma20', 'ma50', 'ma200', 'regime', 'momentum', 'cross'].forEach(function(id) {
+        var chip = document.getElementById('sc-' + id);
+        if (chip) chip.className = 'sentiment-chip neutral';
+        var val = document.getElementById('sc-' + id + '-val');
+        if (val) val.textContent = '—';
     });
 
-    // K fix: wrap chart.remove() in try/catch + clear container innerHTML
-    var chartContainers = [
-        { chart: window.CRYPTOChart, containerId: 'chart-crypto', volContainerId: 'chart-crypto-vol' },
-        { chart: window.TWSEChart, containerId: 'chart-twse', volContainerId: 'chart-twse-vol' },
-        { chart: window.USChart, containerId: 'chart-us', volContainerId: 'chart-us-vol' }
-    ];
-    chartContainers.forEach(function(item) {
-        try {
-            if (item.chart) {
-                item.chart.remove();
-                var c = document.getElementById(item.containerId);
-                var v = document.getElementById(item.volContainerId);
-                if (c) c.innerHTML = '';
-                if (v) v.innerHTML = '';
-            }
-        } catch(e) { console.warn('chart.remove error', e); }
+    // ── 3. Tab button active states (200ms CSS transition) ────────────────
+    ['crypto', 'twse', 'us', 'strategy'].forEach(function(m) {
+        var btn = document.getElementById('tab-btn-' + m);
+        if (btn) { btn.classList.remove('active'); }
     });
-    window.CRYPTOChart = window.CRYPTOCandleSeries = window.CRYPTOVolChart = window.CRYPTOVolSeries = null;
-    window.TWSEChart = window.TWSECandleSeries = window.TWSEVolChart = window.TWSEVolSeries = null;
-    window.USChart = window.USCandleSeries = window.USVolChart = window.USVolSeries = null;
+    var activeBtn = document.getElementById('tab-btn-' + market.toLowerCase());
+    if (activeBtn) activeBtn.classList.add('active');
 
-    window.currentMarket = market;
+    // ── 4. Show active tab content ─────────────────────────────────────────
+    document.querySelectorAll('.tab-content').forEach(function(el) { el.style.display = 'none'; });
+    var tabEl = document.getElementById('tab-' + market.toLowerCase());
+    if (tabEl) tabEl.style.display = 'block';
 
-    // 更新頁面抬頭標題
+    // ── 5. Update page title ─────────────────────────────────────────────
     var titleEl = document.getElementById('topbar-title');
-    if (titleEl) {
-        if (market === 'TWSE') {
-            titleEl.textContent = '📈 台股量化交易平台';
-        } else if (market === 'US') {
-            titleEl.textContent = '🇺🇸 美股量化交易平台';
-        } else {
-            titleEl.textContent = '📈 加密貨幣量化交易平台';
-        }
+    var titles = { CRYPTO: '📈 加密貨幣量化交易平台', TWSE: '🏦 台股量化交易平台', US: '🇺🇸 美股量化交易平台', STRATEGY: '📊 策略中心' };
+    if (titleEl && titles[market]) titleEl.textContent = titles[market];
+
+    // ── 6. Strategy tab ──────────────────────────────────────────────────
+    if (market === 'STRATEGY') {
+        window.loadStrategies();
+        return;
     }
-    document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
-    var targetBtn = document.getElementById('tab-btn-' + market.toLowerCase());
-    if (targetBtn) targetBtn.classList.add('active');
 
-    if (market === 'TWSE') {
-        document.getElementById('tab-twse').style.display = 'block';
-        document.getElementById('tab-crypto').style.display = 'none';
-        document.getElementById('tab-us').style.display = 'none';
-        document.getElementById('tab-strategy').style.display = 'none';
-        window.loadQuote(market, window['current' + market + 'Stock']);
-        window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
-        // Clear ranking table for TWSE mode
+    // ── 7. Load chart data for selected market ────────────────────────────
+    var sym = window['current' + market + 'Stock'] || _defaultSymbol(market);
+    var tf  = window['current' + market + 'TF'] || 'D';
+    window.loadQuote(market, sym);
+    window.loadChart(market, sym, tf);
+
+    // ── 8. Clear strategy tables for non-crypto markets ───────────────────
+    if (market === 'TWSE' || market === 'US') {
         window.renderRankingTable([]);
-        var stratConsBody = document.getElementById('strategy-consensus-body');
-        if (stratConsBody) stratConsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">台股模式，暫無策略資料</div>';
-        // Reset sentiment chips
-        var sentimentBar = document.getElementById('sentiment-bar');
-        if (sentimentBar) {
-            sentimentBar.querySelectorAll('.sentiment-chip').forEach(function(chip) {
-                chip.className = 'sentiment-chip neutral';
-            });
-        }
-        document.getElementById('sc-rsi-val').textContent = '—';
-        document.getElementById('sc-rsi4h-val').textContent = '—';
-        document.getElementById('sc-ma20-val').textContent = '—';
-        document.getElementById('sc-ma50-val').textContent = '—';
-        document.getElementById('sc-ma200-val').textContent = '—';
-        document.getElementById('sc-regime-val').textContent = '—';
-        document.getElementById('sc-momentum-val').textContent = '—';
-        document.getElementById('sc-cross-val').textContent = '—';
-
+        var consBody = document.getElementById('strategy-consensus-body');
+        if (consBody) consBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">' + market + ' 模式，暫無策略資料</div>';
     } else if (market === 'CRYPTO') {
-        document.getElementById('tab-crypto').style.display = 'block';
-        document.getElementById('tab-twse').style.display = 'none';
-        document.getElementById('tab-us').style.display = 'none';
-        document.getElementById('tab-strategy').style.display = 'none';
-        document.querySelectorAll('#crypto-tf-buttons .tf-btn').forEach(function(b) {
-            b.classList.toggle('active', b.dataset.tf === window.currentCRYPTOTF);
-        });
-        window.loadQuote(market, window['current' + market + 'Stock']);
-        window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
-        // Reload crypto strategies when switching back
         window.loadStrategies();
-
-    } else if (market === 'STRATEGY') {
-        document.getElementById('tab-strategy').style.display = 'block';
-        document.getElementById('tab-crypto').style.display = 'none';
-        document.getElementById('tab-twse').style.display = 'none';
-        document.getElementById('tab-us').style.display = 'none';
-        var titleEl = document.getElementById('topbar-title');
-        if (titleEl) titleEl.textContent = '📊 策略中心';
-        window.loadStrategies();
-    } else if (market === 'US') {
-        document.getElementById('tab-us').style.display = 'block';
-        document.getElementById('tab-crypto').style.display = 'none';
-        document.getElementById('tab-twse').style.display = 'none';
-        document.getElementById('tab-strategy').style.display = 'none';
-        var titleEl = document.getElementById('topbar-title');
-        if (titleEl) titleEl.textContent = '🇺🇸 美股量化交易平台';
-        window.loadQuote(market, window['current' + market + 'Stock']);
-        window.loadChart(market, window['current' + market + 'Stock'], window['current' + market + 'TF'] || 'D');
-        if (window.USChart) window.USChart.resize();
-        if (window.USVolChart) window.USVolChart.resize();
-        window.renderRankingTable([]);
-        var stratConsBody = document.getElementById('strategy-consensus-body');
-        if (stratConsBody) stratConsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">美股模式，暫無策略資料</div>';
-        // Reset sentiment chips（與 TWSE 分支相同的邏輯）
-        var sentimentBar = document.getElementById('sentiment-bar');
-        if (sentimentBar) {
-            sentimentBar.querySelectorAll('.sentiment-chip').forEach(function(chip) {
-                chip.className = 'sentiment-chip neutral';
-            });
-        }
-        document.getElementById('sc-rsi-val').textContent = '—';
-        document.getElementById('sc-rsi4h-val').textContent = '—';
-        document.getElementById('sc-ma20-val').textContent = '—';
-        document.getElementById('sc-ma50-val').textContent = '—';
-        document.getElementById('sc-ma200-val').textContent = '—';
-        document.getElementById('sc-regime-val').textContent = '—';
-        document.getElementById('sc-momentum-val').textContent = '—';
-        document.getElementById('sc-cross-val').textContent = '—';
     }
+}
+
+function _defaultSymbol(market) {
+    return { CRYPTO: 'BTCUSDT', TWSE: '2330', US: 'AAPL' }[market] || '';
 }

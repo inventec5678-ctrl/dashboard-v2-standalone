@@ -40,6 +40,25 @@ function _invalidateCache(market, symbol, interval) {
 // Expose _invalidateCache globally so dashboard.js countdown can force a fresh fetch
 window._invalidateCache = _invalidateCache;
 
+// ====== Current Price Line ======
+function _updateCurrentPriceLine(market, price) {
+    var candleSeries = window[market + 'CandleSeries'];
+    if (!candleSeries || !price) return;
+    if (window._currentPriceLine) {
+        window._currentPriceLine.remove();
+        window._currentPriceLine = null;
+    }
+    window._currentPriceLine = candleSeries.createPriceLine({
+        price: price,
+        color: '#58A6FF',
+        lineWidth: 1,
+        lineStyle: 0,
+        axisLabelVisible: true,
+        title: ' NOW',
+    });
+}
+window._updateCurrentPriceLine = _updateCurrentPriceLine;
+
 // 通用標的載入
 export async function loadSymbols(market) {
     // 使用 querySelector 找 select（更寬鬆的匹配）
@@ -152,6 +171,7 @@ export function loadQuote(market, symbol) {
                 priceEl.textContent = window.fmtPrice(data.price);
                 priceEl.className = 'chart-price ' + (data.change_pct >= 0 ? 'up' : 'dn');
             }
+            if (window._updateCurrentPriceLine) window._updateCurrentPriceLine(market, data.price);
             if (changeEl) {
                 changeEl.textContent = (data.change_pct >= 0 ? '+' : '') + data.change_pct.toFixed(2) + '%';
                 changeEl.className = data.change_pct >= 0 ? 'up' : 'dn';

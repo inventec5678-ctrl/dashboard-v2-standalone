@@ -29,6 +29,9 @@ function _invalidateCache(market, symbol, interval) {
     _chartCache.delete(_getCacheKey(market, symbol, interval));
 }
 
+// Expose _invalidateCache globally so dashboard.js countdown can force a fresh fetch
+window._invalidateCache = _invalidateCache;
+
 // 通用標的載入
 export async function loadSymbols(market) {
     // 使用 querySelector 找 select（更寬鬆的匹配）

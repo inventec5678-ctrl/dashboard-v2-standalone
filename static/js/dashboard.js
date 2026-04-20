@@ -54,7 +54,11 @@ function startCountdown() {
             var market = window.currentMarket || 'CRYPTO';
             var symbol = window['current' + market + 'Stock'];
             var tf = window['current' + market + 'TF'] || 'D';
-            console.log('[countdown] 0s — auto-refreshing', market, symbol);
+            // Invalidate cache so loadChart fetches fresh data
+            if (window._invalidateCache) {
+                window._invalidateCache(market, symbol, tf);
+            }
+            console.log('[countdown] 0s — refreshing', market, symbol, tf, '(cache cleared)');
             if (window.loadQuote) window.loadQuote(market, symbol);
             if (window.loadChart) window.loadChart(market, symbol, tf);
             // startCountdown will be called by loadQuote on success to reset the timer

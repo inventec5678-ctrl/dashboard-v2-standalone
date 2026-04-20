@@ -49,6 +49,19 @@ function startCountdown() {
         var el2 = document.getElementById('countdown-val');
         if (el2) el2.textContent = remaining2;
 
+        // Update last-update-time display
+        var lastUpdateEl = document.getElementById('last-update-time');
+        if (lastUpdateEl) {
+            if (remaining2 === 0) {
+                lastUpdateEl.textContent = '更新中...';
+            } else {
+                var t = window.lastSuccessfulUpdate;
+                if (t) {
+                    lastUpdateEl.textContent = 'UPDATE ' + t.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            }
+        }
+
         // Countdown reached 0 — auto-refresh quote and chart
         if (remaining2 === 0) {
             var market = window.currentMarket || 'CRYPTO';
